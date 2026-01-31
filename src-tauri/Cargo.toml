@@ -11,6 +11,10 @@ name = "aiharness_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bin]]
+name = "aiharness"
+path = "src/main.rs"
+
+[[bin]]
 name = "aiharness-mcp-server"
 path = "src/mcp_server.rs"
 

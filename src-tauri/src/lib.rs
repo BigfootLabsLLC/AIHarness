@@ -304,6 +304,13 @@ pub fn run() {
             
             tokio::runtime::Runtime::new().unwrap().block_on(async move {
                 let app_dir = handle.path().app_data_dir().unwrap();
+                
+                // Create the app data directory if it doesn't exist
+                if let Err(e) = std::fs::create_dir_all(&app_dir) {
+                    tracing::error!("Failed to create app data directory: {}", e);
+                    return;
+                }
+                
                 let db_path = app_dir.join("aiharness.db");
                 
                 match AppState::new(db_path.to_str().unwrap()).await {
