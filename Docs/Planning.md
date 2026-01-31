@@ -404,15 +404,23 @@
     - Minimal local compute
     - Can disconnect/reconnect seamlessly
     
-- **Local Network Communication**
-  - WebSocket for real-time bidirectional streaming
+- **Local Network Communication (LAN-Only)**
+  - WebSocket for real-time bidirectional streaming (internal network only)
   - gRPC for structured commands
-  - mDNS for automatic discovery (optional)
+  - mDNS for automatic discovery on local network
   - TLS encryption (even on LAN)
+  - **No port forwarding required** - binds to local interfaces only (192.168.x.x, 10.x.x.x)
+  - **No external exposure** - firewall-friendly, no open ports to internet
+  
+- **Future: Remote Access via Relay**
+  - For access outside home network: VPN or relay server (user-controlled)
+  - Traffic routes through middle server, never direct to home IP
+  - Optional Tailscale/WireGuard integration
+  - No plans for direct port exposure to internet
   
 - **Session Management**
   - Server maintains state when client disconnects
-  - Reconnect to running sessions
+  - Reconnect to running sessions on same network
   - Multiple clients can view same session (read-only or collaborative)
   - Graceful degradation if connection drops
   

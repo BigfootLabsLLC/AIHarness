@@ -696,34 +696,48 @@ interface PanelParticipant {
 
 ## Phase 17: Client/Server Mode (Weeks 43-46)
 
+**Principle:** LAN-only. No port forwarding. No external exposure.
+
 ### 17.1 Server Architecture
-**Goal:** Headless server running on powerful desktop.
+**Goal:** Headless server running on powerful desktop, LAN-only.
 
 **Key Deliverables:**
 - [ ] Server binary (headless mode)
-- [ ] WebSocket server for client connections
+- [ ] Bind to local interfaces only (192.168.x.x, 10.x.x.x)
+- [ ] WebSocket server (internal network)
 - [ ] gRPC service for commands
 - [ ] Session persistence
-- [ ] Multi-client support
+- [ ] Multi-client support (same network)
 
 ### 17.2 Client Architecture
-**Goal:** Thin client that connects to server.
+**Goal:** Thin client that connects to server on local network.
 
 **Key Deliverables:**
 - [ ] Client mode UI
-- [ ] Server discovery (mDNS)
+- [ ] Server discovery (mDNS on LAN)
 - [ ] Connection management
 - [ ] Reconnect/resume logic
 - [ ] Offline queue (queue commands when disconnected)
 
 ### 17.3 Communication Protocol
-**Goal:** Efficient bidirectional streaming.
+**Goal:** Efficient bidirectional streaming over local network.
 
 **Key Deliverables:**
 - [ ] WebSocket event streaming
 - [ ] gRPC command protocol
-- [ ] File sync (laptop ↔ desktop)
-- [ ] TLS encryption
+- [ ] File sync (laptop ↔ desktop on LAN)
+- [ ] TLS encryption (even on LAN)
+- [ ] Token-based authentication
+
+### 17.4 Security (LAN-Only)
+**Goal:** No external exposure, firewall friendly.
+
+**Key Deliverables:**
+- [ ] Default to local network interfaces only
+- [ ] No port forwarding required
+- [ ] No direct internet exposure
+- [ ] Future: VPN/Tailscale integration for remote (user-controlled)
+- [ ] Future: Relay server option (traffic through middle, never direct)
 - [ ] Authentication/authorization
 
 ---

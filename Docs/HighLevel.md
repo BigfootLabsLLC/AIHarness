@@ -109,9 +109,10 @@ This tool enables a **multi-agent orchestration paradigm** where:
 
 ## Client/Server Mode ⭐ NEW
 * **Server mode** - Run AIHarness on powerful desktop as headless server.
-* **Thin client** - Laptop connects to server, UI streams locally.
-* **Local network** - Everything stays on your LAN, no cloud needed.
+* **Thin client** - Laptop connects to server via local network, UI streams locally.
+* **LAN-only by default** - No port forwarding, no open ports to internet. Stays on your intranet.
+* **Future: Relay server** - For remote access, traffic routes through a middle server (VPN/tunnel), never direct.
 * **Compute separation** - Desktop handles AI calls, agents, heavy lifting.
 * **Session persistence** - Disconnect laptop, server keeps working.
-* **Multi-client** - Connect from multiple devices simultaneously.
+* **Multi-client** - Connect from multiple devices simultaneously on same network.
 * **Seamless sync** - Switch from local mode to server mode transparently.

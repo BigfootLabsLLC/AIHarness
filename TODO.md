@@ -569,26 +569,35 @@ A "living" AI companion that runs on a tunable interval, proactively suggesting,
 
 ## Phase 21: Client/Server Mode ⭐ NEW
 
+**Principle:** LAN-only, no port forwarding, no external exposure.
+
 ### Server Architecture
 - [ ] Headless server binary
-- [ ] WebSocket server implementation
+- [ ] Bind to local network interfaces only (192.168.x.x, 10.x.x.x)
+- [ ] WebSocket server (internal network only)
 - [ ] gRPC service layer
 - [ ] Session persistence
 - [ ] Multi-client session sharing
 
 ### Client Architecture
 - [ ] Thin client mode
-- [ ] Server discovery (mDNS)
+- [ ] Server discovery (mDNS on local network)
 - [ ] Connection management UI
-- [ ] Reconnect/resume logic
+- [ ] Reconnect/resume logic (same network)
 - [ ] Offline command queue
 
 ### Communication
 - [ ] WebSocket bidirectional streaming
 - [ ] gRPC command protocol
 - [ ] File synchronization
-- [ ] TLS encryption
-- [ ] Authentication
+- [ ] TLS encryption (even on LAN)
+- [ ] Authentication (tokens, not passwords)
+
+### Security & Networking
+- [ ] **LAN-only by default** - no port forwarding required
+- [ ] **No external exposure** - firewall friendly
+- [ ] **Future: Remote via relay/VPN** - Tailscale, WireGuard, or user-controlled relay
+- [ ] **No direct internet exposure** - never open ports to public internet
 
 ---
 
