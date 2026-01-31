@@ -11,6 +11,7 @@ pub mod mcp;
 pub mod tools;
 
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::sync::RwLock;
 
 /// Application state shared across the Tauri app
