@@ -14,55 +14,80 @@
 
 ---
 
-## Version 0.1 — "Hello AI"
+## Version 0.1 — "The Bridge" (MCP Server)
 
-**Goal:** Basic scaffolding + one working AI integration. Prove the stack works.
+**Goal:** Local MCP server that external AI tools can connect to. AIHarness is the "tool provider" for your existing AI assistants.
+
+**Why this first:** Claude and others have limited direct tool access. Instead, we build a local MCP server that **you** control, and any AI can call it.
 
 **Definition of Done:**
-- [ ] Tauri app launches without errors
-- [ ] React UI renders (basic layout: sidebar, chat panel)
-- [ ] Rust backend initializes (SQLite connects, no migrations yet)
-- [ ] **One AI provider integrated** (Claude via Anthropic)
-  - [ ] Can send a message
-  - [ ] Can receive a response
-  - [ ] Basic streaming (optional for V0.1, can be polling)
-- [ ] **Basic tool use** (read_file, list_directory)
-  - [ ] AI can request tool use
-  - [ ] Tool output shown in UI
-- [ ] Conversation persists to SQLite
-- [ ] Can start a new conversation
+- [ ] Tauri app launches (system tray or window)
+- [ ] **Local MCP Server** running on localhost
+  - [ ] MCP protocol over stdio or HTTP (localhost only)
+  - [ ] Exposes tools: `read_file`, `write_file`, `list_directory`, `search_files`
+  - [ ] Exposes resources: project context, todo list, file contents
+  - [ ] Simple token auth
+- [ ] **React UI for monitoring**
+  - [ ] Server status (running/stopped)
+  - [ ] Tool call log (what was called, when, result)
+  - [ ] Connected clients list
+  - [ ] Basic context management (add/remove files from context)
+- [ ] **Persistence**
+  - [ ] SQLite for tool call history
+  - [ ] Context configuration persists
 
 **Explicitly NOT in V0.1:**
-- Multiple providers
+- Built-in AI/chat (external AIs provide this)
+- Direct API integration
 - Cost tracking
-- Agent system
-- Workflows
-- Expert panels
-- Heartbeat
-- Client/server mode
-- Python embedding
+- Agents, workflows, panels, etc.
 
 **V0.1 Success Criteria:**
-> "I can open the app, start a conversation with Claude, ask it to read a file, and see the response."
+> "I can configure Claude Desktop (or Cursor, etc.) to use AIHarness's MCP server, and it can read my project files and todo list through the bridge."
+
+**Usage Example:**
+```bash
+# Claude Desktop config
+{
+  "mcpServers": {
+    "aiharness": {
+      "command": "aiharness-mcp-server",
+      "env": { "AIH_TOKEN": "..." }
+    }
+  }
+}
+
+# In Claude chat
+User: "What's on my todo list?"
+Claude: [calls aiharness/get_todos]
+Claude: "You have 3 items: ..."
+```
 
 ---
 
-## Version 0.2 — "Dogfood"
+## Version 0.2 — "Direct Connect" (Built-in AI)
 
-**Goal:** Use V0.1 to build V0.2. Fix pain points. Add essentials.
+**Goal:** AIHarness gets its own AI integration. No external MCP client needed — chat directly in the app.
 
 **Definition of Done:**
-- [ ] Used V0.1 for 1 week, documented friction
-- [ ] Monaco editor integrated (file viewing)
-- [ ] All basic file tools work (read, write, list, search)
-- [ ] Shell tool (with approval)
-- [ ] Git tools (status, diff)
-- [ ] Conversation branching/forking
-- [ ] Cost tracking (per call, basic display)
-- [ ] Basic agent (single agent, simple task execution)
+- [ ] **Direct AI API integration**
+  - [ ] Connect to one provider (OpenAI, Anthropic, or local Ollama)
+  - [ ] Built-in chat UI (message thread, input box)
+  - [ ] Streaming responses
+  - [ ] Tool use (same tools from V0.1, now called by built-in AI)
+- [ ] **Enhanced UI**
+  - [ ] Monaco editor for file viewing
+  - [ ] File tree sidebar
+  - [ ] Chat panel (persistent, not external)
+- [ ] **Tool expansion**
+  - [ ] Shell execution (with approval UI)
+  - [ ] Git tools (status, diff, log)
+- [ ] **Basic cost tracking**
+  - [ ] Per-call cost logging
+  - [ ] Simple cost display in UI
 
 **Success Criteria:**
-> "I can use this instead of Claude Code for basic coding tasks."
+> "I can open AIHarness, chat with AI directly in the app, and it can use tools to help me code."
 
 ---
 
