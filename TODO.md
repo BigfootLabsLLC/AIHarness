@@ -2,7 +2,8 @@
 
 > **Last Updated:** 2026-01-31  
 > **Status:** Planning Phase — Architecture & Design  
-> **Stack:** Tauri (Rust + React/TypeScript)
+> **Stack:** Tauri (Rust + React/TypeScript)  
+> **Vision:** Complete AI Control Center — Your CLI Replacement + Proactive AI Companion
 
 ---
 
@@ -281,6 +282,168 @@
 - [ ] Directory registration
 - [ ] Snapshot system
 - [ ] Safe query APIs
+
+---
+
+## Phase 11: Chat System & CLI Parity ⭐ NEW
+
+### Vision
+Full replacement for AI CLI tools (Claude Code, Aider, etc.) — fork conversations, time travel, complete tool use.
+
+### Chat Session Management
+- [ ] Conversation persistence (SQLite)
+- [ ] Chat branching/forking
+  - [ ] Fork at any message
+  - [ ] Multiple conversation branches
+  - [ ] Branch comparison (diff view)
+- [ ] Time travel navigation
+  - [ ] Browse full conversation history
+  - [ ] Jump to any point in conversation
+  - [ ] "What if" scenarios (rewind and retry)
+- [ ] Chat search (full-text across all conversations)
+- [ ] Chat export (Markdown, JSON, shareable links)
+- [ ] Chat templates (save conversation starters)
+
+### Tool Use Integration
+- [ ] Shell command execution
+  - [ ] User approval for destructive commands
+  - [ ] Command output capture and display
+  - [ ] Working directory context
+- [ ] File system tools
+  - [ ] Read/write files
+  - [ ] List directories
+  - [ ] Search files (grep)
+- [ ] Code tools
+  - [ ] View code with line numbers
+  - [ ] Search/replace in files
+  - [ ] Apply patches/diffs
+- [ ] Git integration
+  - [ ] Status, diff, commit
+  - [ ] Branch operations
+  - [ ] View commit history
+- [ ] Web tools
+  - [ ] Fetch URLs
+  - [ ] Search (DuckDuckGo, etc.)
+
+### Chat UI
+- [ ] Threaded message view
+- [ ] Code block syntax highlighting
+- [ ] Tool call visualization (expandable cards)
+- [ ] Message editing (by user and AI)
+- [ ] Typing indicators
+- [ ] Message reactions/feedback
+
+---
+
+## Phase 12: Real-Time Collaboration UI ⭐ NEW
+
+### AI Todo List Visibility
+- [ ] Real-time task progress display
+  - [ ] Current task being worked on
+  - [ ] Subtask breakdown
+  - [ ] Progress bars/percentages
+  - [ ] Time estimates vs. actual
+- [ ] Todo list in sidebar (always visible)
+- [ ] Task status updates (streaming)
+- [ ] Blocked task indicators with reason
+- [ ] Completed task celebration 🎉
+
+### Editor Integration (Shared Presence)
+- [ ] AI opens file → opens as tab automatically
+- [ ] AI navigates to location → scrolls to that position
+- [ ] Visual indicator of AI's "cursor" (ghost cursor)
+- [ ] AI edits appear in real-time (like Google Docs)
+- [ ] User can "follow" AI or work independently
+- [ ] Conflict resolution when both editing
+- [ ] AI change preview (accept/reject per change)
+
+### Activity Feed
+- [ ] Stream of AI actions
+- [ ] What files touched, what commands run
+- [ ] Cost accumulation in real-time
+- [ ] Filterable by agent/task/type
+
+---
+
+## Phase 13: Scheduling System ⭐ NEW
+
+### Scheduled Prompts
+- [ ] Cron-like scheduling interface
+- [ ] One-time scheduled prompts
+- [ ] Recurring prompts (daily standup, weekly review)
+- [ ] Prompt templates with variables (date, project state)
+- [ ] Schedule management UI (calendar view)
+- [ ] Notification system when scheduled prompt runs
+- [ ] Execution history
+
+### AI Self-Scheduling
+- [ ] AI can schedule future prompts for itself
+  - [ ] "Check back on this tomorrow"
+  - [ ] "Review progress in 2 hours"
+- [ ] Scheduled task dependencies
+  - [ ] "After task X completes, schedule review"
+- [ ] Conditional scheduling
+  - [ ] "If tests fail, retry in 10 minutes"
+- [ ] User approval for AI-scheduled items (optional gate)
+
+### Background Execution
+- [ ] Scheduler daemon (always running)
+- [ ] Queue management
+- [ ] Retry logic for failed scheduled runs
+- [ ] Resource management (don't run if already busy)
+
+---
+
+## Phase 14: Heartbeat System ⭐ NEW ⭐ EXPERIMENTAL
+
+### Vision
+A "living" AI companion that runs on a tunable interval, proactively suggesting, monitoring, and enhancing your workflow.
+
+### Core Heartbeat
+- [ ] Configurable heartbeat interval (30s, 1m, 5m, etc.)
+- [ ] Background context gathering
+  - [ ] Current file state
+  - [ ] Recent activity
+  - [ ] Time of day, day of week
+  - [ ] Music playing (system integration)
+  - [ ] Git state
+  - [ ] Error logs (recent failures)
+- [ ] Heartbeat prompt template
+  - [ ] Context-aware suggestions
+  - [ ] Non-intrusive (sidebar notification, not modal)
+- [ ] Smart triggering (only when relevant)
+  - [ ] Don't interrupt deep work
+  - [ ] Detect idle time vs. active coding
+
+### Proactive Suggestions
+- [ ] Code suggestions based on patterns
+- [ ] "You might want to..." based on context
+- [ ] Reminders ("You said you'd review this")
+- [ ] Related file suggestions
+- [ ] Documentation gaps detected
+- [ ] Test coverage suggestions
+
+### Ambient Features (Experimental)
+- [ ] Music integration (control Spotify/Apple Music)
+  - [ ] "Focus mode" playlist
+  - [ ] Music suggestions based on task type
+  - [ ] Pause when AI needs attention
+- [ ] Pomodoro-style work/break reminders
+- [ ] Posture/stretch reminders (gentle)
+- [ ] Daily standup summary generation
+- [ ] End-of-day commit message suggestions
+
+### Personality & Voice
+- [ ] Configurable assistant personality
+  - [ ] Professional, casual, playful, terse
+- [ ] Voice/notification sounds (optional)
+- [ ] Greeting on startup (contextual)
+
+### Safety & Controls
+- [ ] Easy pause/resume heartbeat
+- [ ] Do Not Disturb mode
+- [ ] Cost tracking (heartbeats add up!)
+- [ ] Transparency: log every heartbeat decision
 
 ---
 

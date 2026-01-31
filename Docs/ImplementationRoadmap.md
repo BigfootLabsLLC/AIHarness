@@ -439,6 +439,133 @@ interface PanelParticipant {
 
 ---
 
+## Phase 7: Chat System & Control Center (Weeks 17-20)
+
+### 7.1 Conversation Management
+**Goal:** Full CLI replacement with persistent, forkable conversations.
+
+**Key Deliverables:**
+- [ ] Conversation data model (tree structure, not linear)
+- [ ] SQLite schema for message history
+- [ ] Conversation forking (copy-on-write)
+- [ ] Time travel navigation (tree browser)
+- [ ] Full-text search across conversations
+- [ ] Export to Markdown/HTML/JSON
+
+### 7.2 Tool Use Integration
+**Goal:** AI can execute shell commands, edit files, use Git.
+
+**Key Deliverables:**
+- [ ] Tool definition system (JSON schema)
+- [ ] Shell tool (with user approval)
+- [ ] File system tools (read, write, list, grep)
+- [ ] Git tools (status, diff, commit, branch)
+- [ ] Web tools (fetch, search)
+- [ ] Tool output streaming to UI
+- [ ] Approval gates for destructive operations
+
+### 7.3 Chat UI
+**Goal:** Rich conversation interface with tool visualization.
+
+**Key Deliverables:**
+- [ ] Message thread view (infinite scroll)
+- [ ] Code block syntax highlighting
+- [ ] Tool call cards (expandable)
+- [ ] Message editing (user and AI)
+- [ ] Branch/fork UI controls
+- [ ] Command palette (Cmd+K)
+
+---
+
+## Phase 8: Real-Time Collaboration (Weeks 21-23)
+
+### 8.1 AI Todo Visibility
+**Goal:** Always-visible AI task progress.
+
+**Key Deliverables:**
+- [ ] Persistent sidebar widget
+- [ ] Real-time progress streaming
+- [ ] Subtask tree with checkboxes
+- [ ] ETA tracking
+- [ ] Blocked state visualization
+
+### 8.2 Shared Editor Presence
+**Goal:** AI and user share the editor like Google Docs.
+
+**Key Deliverables:**
+- [ ] File open sync (AI opens → tab opens)
+- [ ] Cursor/scroll sync (follow mode)
+- [ ] Ghost cursor rendering
+- [ ] Real-time edit preview (diff view)
+- [ ] Change accept/reject UI
+
+### 8.3 Activity Feed
+**Goal:** Stream of everything AI is doing.
+
+**Key Deliverables:**
+- [ ] Event collection system
+- [ ] Real-time feed component
+- [ ] Cost ticker
+- [ ] Filtering by type/agent
+
+---
+
+## Phase 9: Scheduling System (Weeks 24-25)
+
+### 9.1 Scheduler Core
+**Goal:** Cron-like scheduling with AI self-scheduling.
+
+**Key Deliverables:**
+- [ ] Cron parser and execution engine
+- [ ] Schedule storage (SQLite)
+- [ ] Background daemon process
+- [ ] Calendar view UI
+- [ ] Execution history
+
+### 9.2 AI Self-Scheduling
+**Goal:** AI can schedule future work.
+
+**Key Deliverables:**
+- [ ] API for AI to create schedules
+- [ ] Conditional scheduling rules
+- [ ] User approval workflow
+- [ ] Schedule dashboard
+
+---
+
+## Phase 10: Heartbeat System (Weeks 26-28) ⭐ EXPERIMENTAL
+
+### 10.1 Core Heartbeat
+**Goal:** Living AI companion with tunable pulse.
+
+**Key Deliverables:**
+- [ ] Heartbeat timer and configuration
+- [ ] Context gathering (files, git, system state)
+- [ ] Smart triggering (idle detection)
+- [ ] Pause/resume controls
+- [ ] Cost tracking for heartbeat
+
+### 10.2 Proactive Suggestions
+**Goal:** Context-aware help without asking.
+
+**Key Deliverables:**
+- [ ] Suggestion generation logic
+- [ ] Non-intrusive UI (sidebar, not modal)
+- [ ] User feedback capture (thumbs up/down)
+- [ ] Suggestion history
+
+### 10.3 Ambient Features
+**Goal:** Music, breaks, daily summaries.
+
+**Key Deliverables:**
+- [ ] Music player integration (Spotify, Apple Music)
+- [ ] Pomodoro timer
+- [ ] Break reminders
+- [ ] Daily standup generation
+- [ ] Startup briefing
+
+---
+
 ## Technical Stack Recommendations
 
 ### Frontend

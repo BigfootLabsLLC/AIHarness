@@ -44,3 +44,31 @@ This tool enables a **multi-agent orchestration paradigm** where:
 * **Approval gates** - Review and approve work at each stage before delegation continues.
 * **Context preservation** - Maintain continuity as work passes between agents.
 * **Quality gates** - Automated checks before accepting agent outputs.
+
+## AI Control Center ⭐ NEW — CLI Replacement
+* **Complete CLI parity** - Everything AI CLI tools can do (Claude Code, Aider, etc.) embedded in the app.
+* **Conversation forking** - Branch conversations at any point, explore different paths.
+* **Time travel** - Navigate full conversation history, rewind to any message.
+* **Full tool use** - Shell commands, file operations, code editing, Git integration, web search.
+* **Persistent chat logs** - Searchable, exportable conversation history across all sessions.
+* **Chat templates** - Save and reuse conversation starters.
+
+## Real-Time Collaboration ⭐ NEW
+* **AI todo visibility** - See what the AI is working on in real-time, with progress bars and status.
+* **Shared editor** - AI opens files as tabs, navigates to locations, ghost cursor shows where AI is looking.
+* **Real-time edits** - AI changes appear as you work (like Google Docs), with accept/reject per change.
+* **Activity feed** - Stream of AI actions: files touched, commands run, costs accumulating.
+
+## Scheduling System ⭐ NEW
+* **Scheduled prompts** - Cron-like scheduling for recurring or one-time prompts.
+* **AI self-scheduling** - AI can schedule future check-ins: "Review this tomorrow", "Retry in 10 minutes if failed".
+* **Conditional scheduling** - "If tests fail, schedule retry", "After task X, schedule review".
+* **Calendar view** - Visual schedule management with execution history.
+
+## Heartbeat System ⭐ NEW ⭐ EXPERIMENTAL
+* **Living AI companion** - Background thread that pulses on a tunable interval.
+* **Proactive suggestions** - Context-aware ideas based on what you're doing, time of day, recent activity.
+* **Ambient features** - Music control, Pomodoro reminders, stretch breaks, daily summaries.
+* **Non-intrusive** - Sidebar notifications, never modal interruptions.
+* **Smart triggering** - Detects idle vs. deep work, only speaks when relevant.
+* **Personality** - Configurable voice: professional, casual, playful, terse.

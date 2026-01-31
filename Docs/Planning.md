@@ -126,7 +126,115 @@
   - Save favorite panel configurations
   - Weighted consensus (trust some models more than others)
 
-### 2.11 AI Interaction Modes
+### 2.11 AI Control Center (CLI Replacement) ⭐ NEW
+- **Conversation Management**
+  - Persistent chat sessions with full history
+  - Searchable conversation archive across all projects
+  - Export conversations (Markdown, JSON, HTML)
+  - Chat templates for common conversation starters
+  
+- **Conversation Forking & Time Travel**
+  - Fork conversation at any message (creates new branch)
+  - Navigate full conversation tree
+  - Compare branches side-by-side
+  - "Rewind" to any point and retry with different approach
+  - Visual timeline showing all branches
+  
+- **Complete Tool Use**
+  - Shell command execution (with approval gates)
+  - File operations (read, write, list, search)
+  - Code viewing and editing
+  - Git integration (status, diff, commit, branch)
+  - Web search and fetch
+  - Build/test command execution
+  
+- **CLI Parity Features**
+  - All capabilities of Claude Code, Aider, Cody, etc.
+  - Command palette (Cmd+K) for quick actions
+  - Keyboard shortcuts for power users
+  - Terminal integration (embedded or external)
+
+### 2.12 Real-Time Collaboration UI ⭐ NEW
+- **AI Todo Visibility**
+  - Persistent sidebar showing AI's current task
+  - Real-time progress updates (streaming)
+  - Subtask breakdown with completion checkboxes
+  - Time estimates vs. actual tracking
+  - Blocked task indicators with hover explanations
+  - "What am I working on?" quick summary
+  
+- **Shared Editor Presence**
+  - AI opens files → automatic tab creation
+  - AI navigates to line → scroll and highlight
+  - Ghost cursor showing AI's current focus
+  - Real-time edit preview (before application)
+  - Follow mode (your view syncs to AI)
+  - Change approval/reject per modification
+  - Conflict resolution when both editing same file
+  
+- **Activity Feed**
+  - Real-time stream of AI actions
+  - File touched, command executed, tool called
+  - Cost accumulation ticker
+  - Filter by agent, task, or action type
+  - Collapsible/detachable panel
+
+### 2.13 Scheduling System ⭐ NEW
+- **Scheduled Prompts**
+  - Cron-like syntax support
+  - One-time scheduled prompts
+  - Recurring: daily, weekly, custom intervals
+  - Prompt templates with time/date variables
+  - Visual calendar view of scheduled items
+  - Notification on execution (optional)
+  - Execution history and logs
+  
+- **AI Self-Scheduling**
+  - AI can queue future prompts for itself
+  - Natural language scheduling: "remind me tomorrow"
+  - Conditional scheduling based on task outcomes
+  - Dependency-based scheduling ("after X, do Y")
+  - User approval gates for AI-created schedules
+  - Scheduled task dashboard (review/cancel)
+
+### 2.14 Heartbeat System ⭐ NEW ⭐ EXPERIMENTAL
+- **Core Heartbeat**
+  - Configurable pulse interval (10s to 1hr)
+  - Background context gathering (files, git, time, errors)
+  - Context-aware prompt generation
+  - Smart triggering (idle detection, no interruption during typing)
+  - Pause/resume controls (toolbar button, keyboard shortcut)
+  
+- **Proactive Suggestions**
+  - Code pattern suggestions based on recent work
+  - "You might want to..." contextual hints
+  - Reminder system ("You said you'd review this")
+  - Related file recommendations
+  - Documentation gap detection
+  - Test coverage suggestions
+  - Refactoring opportunities
+  
+- **Ambient Features**
+  - Music integration (Spotify, Apple Music)
+    - Focus mode playlists
+    - Task-appropriate music suggestions
+    - Auto-pause when AI needs attention
+  - Pomodoro timer integration
+  - Gentle break reminders (posture, stretch)
+  - Daily standup summary generation
+  - End-of-day commit suggestions
+  - Morning briefing (what's on your plate)
+  
+- **Personality & Safety**
+  - Configurable personality: professional, casual, playful, terse
+  - Notification sounds (optional, customizable)
+  - Greeting on startup with context
+  - Do Not Disturb mode
+  - Cost tracking (heartbeats are not free!)
+  - Decision transparency (log every suggestion reason)
+  - User feedback on suggestions (thumbs up/down for learning)
+
+### 2.15 AI Interaction Modes
 - **Harness Mode**: Built-in collaborative AI can edit prompts, generate todos, and modify shared docs within the UI, using tooling like guided suggestions and contextual helpers.
 - **MCP/Tool Server Mode**: Expose the app as a callable MCP server or Python tool interface so external AIs can query documents, log todos, or request architecture guidance with authentication and audit trails.
 

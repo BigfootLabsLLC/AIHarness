@@ -664,6 +664,332 @@ export interface PanelTemplate {
 }
 
 // ============================================================================
+// Chat & Conversation Types ⭐ NEW
+// ============================================================================
+
+export type ConversationMode = 'chat' | 'agent' | 'panel';
+
+export interface Conversation extends Timestamped {
+  id: ID;
+  projectId: ID;
+  
+  // Identity
+  title: string;
+  mode: ConversationMode;
+  
+  // Tree structure (not linear!)
+  rootMessageId?: ID;
+  currentBranchId: ID;      // Where user is currently viewing
+  
+  // Branches (forks)
+  branches: ConversationBranch[];
+  
+  // Metadata
+  tags: string[];
+  isArchived: boolean;
+  
+  // Stats
+  messageCount: number;
+  totalCostUSD: number;
+}
+
+export interface ConversationBranch {
+  id: ID;
+  name: string;             // User-defined or auto-generated
+  parentBranchId?: ID;      // Null for root
+  forkedFromMessageId?: ID; // Where this branch diverged
+  headMessageId: ID;        // Latest message in this branch
+  createdAt: Date;
+}
+
+export interface Message extends Timestamped {
+  id: ID;
+  conversationId: ID;
+  branchId: ID;
+  
+  // Tree structure
+  parentId?: ID;            // Null for root
+  childrenIds: ID[];
+  
+  // Content
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  
+  // Tool use (for assistant messages)
+  toolCalls?: ToolCall[];
+  
+  // Tool response (for tool messages)
+  toolCallId?: string;
+  toolResult?: ToolResult;
+  
+  // Metadata
+  model?: string;           // Which model generated this
+  costUSD?: number;
+  tokensIn?: number;
+  tokensOut?: number;
+  latencyMs?: number;
+  
+  // Editing
+  editedAt?: Date;
+  originalContent?: string; // For tracking edits
+  
+  // User feedback
+  feedback?: 'helpful' | 'not_helpful' | null;
+}
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;      // JSON string
+  };
+}
+
+export interface ToolResult {
+  content: string;
+  isError: boolean;
+  exitCode?: number;        // For shell commands
+}
+
+export type ToolName = 
+  | 'shell'                 // Execute shell command
+  | 'read_file'             // Read file contents
+  | 'write_file'            // Write/edit file
+  | 'list_directory'        // List files
+  | 'search_files'          // Grep/search
+  | 'git_status'            // Git status
+  | 'git_diff'              // Git diff
+  | 'git_commit'            // Git commit
+  | 'web_search'            // Web search
+  | 'web_fetch';            // Fetch URL
+
+export interface ToolDefinition {
+  name: ToolName;
+  description: string;
+  parameters: object;       // JSON Schema
+  requireApproval: boolean;
+}
+
+// ============================================================================
+// Scheduling Types ⭐ NEW
+// ============================================================================
+
+export type ScheduleType = 'once' | 'recurring';
+export type ScheduleStatus = 'active' | 'paused' | 'completed' | 'error';
+
+export interface ScheduledPrompt extends Timestamped {
+  id: ID;
+  projectId: ID;
+  
+  // What to run
+  name: string;
+  description?: string;
+  prompt: string;
+  contextDocumentIds?: ID[];
+  
+  // When to run
+  type: ScheduleType;
+  cronExpression?: string;  // For recurring
+  runAt?: Date;             // For one-time
+  
+  // State
+  status: ScheduleStatus;
+  nextRunAt?: Date;
+  lastRunAt?: Date;
+  runCount: number;
+  
+  // Execution
+  targetAgentId?: ID;       // Which agent to run as
+  createTask: boolean;      // Create a task for tracking?
+  
+  // History
+  executionHistory: ScheduleExecution[];
+  
+  // Created by
+  createdBy: 'user' | ID;   // User or Agent ID
+}
+
+export interface ScheduleExecution {
+  id: ID;
+  scheduledPromptId: ID;
+  runAt: Date;
+  completedAt?: Date;
+  status: 'running' | 'success' | 'error' | 'cancelled';
+  result?: string;
+  errorMessage?: string;
+  costUSD?: number;
+}
+
+// ============================================================================
+// Heartbeat Types ⭐ NEW
+// ============================================================================
+
+export type HeartbeatStatus = 'running' | 'paused' | 'disabled';
+export type HeartbeatPersonality = 'professional' | 'casual' | 'playful' | 'terse';
+
+export interface HeartbeatConfig {
+  id: ID;
+  projectId: ID;
+  
+  // Basic settings
+  enabled: boolean;
+  intervalSeconds: number;  // 30, 60, 300, etc.
+  status: HeartbeatStatus;
+  
+  // Triggers
+  requireIdleMs: number;    // Minimum idle time before triggering
+  maxSuggestionsPerHour: number;
+  
+  // Personality
+  personality: HeartbeatPersonality;
+  customSystemPrompt?: string;
+  
+  // Features
+  enableProactiveSuggestions: boolean;
+  enableMusicIntegration: boolean;
+  enableBreakReminders: boolean;
+  enableDailySummaries: boolean;
+  
+  // Context gathering
+  contextSources: HeartbeatContextSource[];
+}
+
+export type HeartbeatContextSource = 
+  | 'current_file'
+  | 'recent_edits'
+  | 'git_status'
+  | 'error_logs'
+  | 'time_of_day'
+  | 'music_playing'
+  | 'task_queue';
+
+export interface HeartbeatPulse extends Timestamped {
+  id: ID;
+  configId: ID;
+  
+  // Context snapshot
+  contextSnapshot: HeartbeatContext;
+  
+  // What happened
+  suggestion?: HeartbeatSuggestion;
+  actionTaken?: string;
+  
+  // Cost
+  costUSD: number;
+  latencyMs: number;
+}
+
+export interface HeartbeatContext {
+  timestamp: Date;
+  currentFile?: string;
+  currentLine?: number;
+  recentFiles: string[];
+  gitBranch?: string;
+  gitStatus?: string;
+  activeTaskId?: ID;
+  musicPlaying?: string;
+  timeOfDay: string;
+  errorsLastHour: number;
+}
+
+export interface HeartbeatSuggestion {
+  id: ID;
+  type: HeartbeatSuggestionType;
+  content: string;
+  confidence: number;       // 0-1
+  
+  // User feedback
+  shownAt: Date;
+  dismissedAt?: Date;
+  feedback?: 'accepted' | 'dismissed' | 'helpful' | 'not_helpful';
+}
+
+export type HeartbeatSuggestionType =
+  | 'code_suggestion'
+  | 'reminder'
+  | 'related_file'
+  | 'documentation_gap'
+  | 'test_suggestion'
+  | 'refactor_opportunity'
+  | 'break_reminder'
+  | 'music_suggestion'
+  | 'daily_summary';
+
+// ============================================================================
+// Real-Time Activity Types ⭐ NEW
+// ============================================================================
+
+export type ActivityType = 
+  | 'file_opened'
+  | 'file_edited'
+  | 'file_closed'
+  | 'command_executed'
+  | 'tool_called'
+  | 'message_sent'
+  | 'task_started'
+  | 'task_completed'
+  | 'agent_spawned'
+  | 'cost_incurred';
+
+export interface ActivityEvent {
+  id: ID;
+  timestamp: Date;
+  projectId: ID;
+  
+  type: ActivityType;
+  agentId?: ID;
+  taskId?: ID;
+  
+  // Description
+  title: string;
+  description?: string;
+  
+  // Context
+  filePath?: string;
+  lineNumber?: number;
+  command?: string;
+  costUSD?: number;
+  
+  // Links
+  conversationId?: ID;
+  messageId?: ID;
+}
+
+// ============================================================================
+// Shared Editor Types ⭐ NEW
+// ============================================================================
+
+export interface EditorPresence {
+  agentId: ID;
+  filePath: string;
+  line: number;
+  column: number;
+  selectionStart?: { line: number; column: number };
+  selectionEnd?: { line: number; column: number };
+  lastSeenAt: Date;
+}
+
+export interface PendingEdit {
+  id: ID;
+  agentId: ID;
+  filePath: string;
+  
+  // The proposed change
+  originalContent: string;
+  proposedContent: string;
+  lineStart: number;
+  lineEnd: number;
+  
+  // Metadata
+  reason?: string;
+  timestamp: Date;
+  
+  // Status
+  status: 'pending' | 'accepted' | 'rejected' | 'stale';
+}
+
+// ============================================================================
 // API Types (for MCP Server)
 // ============================================================================
 
