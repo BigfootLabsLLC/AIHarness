@@ -1,0 +1,156 @@
+# Sample AIHarness Project Configuration
+# This shows how to configure a project with multi-agent orchestration
+
+project:
+  name: "AIHarness Self-Development"
+  description: "Using AIHarness to build AIHarness"
+  
+  # Budget: $50/month with alerts at 50%, 80%, 95%
+  budgetUSD: 50.0
+  budgetAlertThresholds: [0.5, 0.8, 0.95]
+
+# Define agent roles for this project
+agentRoles:
+  - role: architect
+    name: "Claude Architect"
+    description: "High-level design and planning"
+    defaultProvider: anthropic
+    defaultModel: "claude-3-5-sonnet-20241022"
+    costBudgetUSD: 20.0
+    systemPromptTemplate: |
+      You are an expert software architect. Your role is to:
+      1. Design high-level system architecture
+      2. Break down complex features into manageable components
+      3. Define interfaces and data flows
+      4. Make technology recommendations
+      
+      Always consider:
+      - Scalability and maintainability
+      - Cost-efficiency
+      - Type safety and testing
+      - Documentation
+
+  - role: implementer
+    name: "GPT-4o Mini Implementer"
+    description: "Code implementation and testing"
+    defaultProvider: openai
+    defaultModel: "gpt-4o-mini"
+    costBudgetUSD: 25.0
+    systemPromptTemplate: |
+      You are a skilled software developer. Your role is to:
+      1. Implement features according to specifications
+      2. Write clean, typed, well-documented code
+      3. Create comprehensive tests
+      4. Follow existing code patterns
+      
+      Guidelines:
+      - Write TypeScript with strict typing
+      - Include JSDoc comments
+      - Create unit tests for all functions
+      - Handle edge cases and errors
+
+  - role: reviewer
+    name: "Claude Reviewer"
+    description: "Code review and quality assurance"
+    defaultProvider: anthropic
+    defaultModel: "claude-3-haiku-20240307"
+    costBudgetUSD: 5.0
+    systemPromptTemplate: |
+      You are a thorough code reviewer. Your role is to:
+      1. Review code for correctness and quality
+      2. Check for security issues
+      3. Verify test coverage
+      4. Suggest improvements
+      
+      Review criteria:
+      - Type safety
+      - Error handling
+      - Performance considerations
+      - Maintainability
+      - Adherence to specifications
+
+# Routing rules for automatic model selection
+routingRules:
+  # Architecture tasks always use premium model
+  - name: "Architecture Tasks"
+    taskType: architecture
+    strategy: fixed
+    fallbackChain: ["claude-3-5-sonnet-20241022"]
+    
+  # Implementation uses cheapest capable model
+  - name: "Implementation (Cost-Optimized)"
+    taskType: implementation
+    strategy: cheapest
+    fallbackChain:
+      - "gpt-4o-mini"           # $0.15/1K input, $0.60/1K output
+      - "claude-3-haiku"        # $0.25/1K input, $1.25/1K output
+      - "claude-3-sonnet"       # $3/1K input, $15/1K output
+    maxCostPer1KTokens: 1.0
+    
+  # Reviews use medium-tier model
+  - name: "Code Review"
+    taskType: review
+    strategy: balanced
+    fallbackChain:
+      - "claude-3-haiku"
+      - "gpt-4o-mini"
+      - "claude-3-sonnet"
+
+# Delegation workflow: Architecture → Spec → Implementation → Review
+workflows:
+  - name: "Feature Development"
+    description: "Standard workflow for implementing new features"
+    stages:
+      - name: "Architecture"
+        order: 1
+        agentRole: architect
+        gateType: approval
+        gateConfig:
+          approver: user
+        inputDocTypes: ["requirements", "feature_request"]
+        outputDocTypes: ["architecture_doc"]
+        
+      - name: "Specification"
+        order: 2
+        agentRole: architect
+        gateType: approval
+        gateConfig:
+          approver: user
+          timeoutMinutes: 1440  # 24 hours auto-approve
+        inputDocTypes: ["architecture_doc"]
+        outputDocTypes: ["spec_doc", "interface_doc"]
+        
+      - name: "Implementation"
+        order: 3
+        agentRole: implementer
+        gateType: review
+        gateConfig:
+          reviewAgentRole: reviewer
+        inputDocTypes: ["spec_doc", "interface_doc"]
+        outputDocTypes: ["implementation_code", "tests"]
+        
+      - name: "Review"
+        order: 4
+        agentRole: reviewer
+        gateType: approval
+        gateConfig:
+          approver: user
+        inputDocTypes: ["implementation_code", "spec_doc"]
+        outputDocTypes: ["review_feedback"]
+
+# Provider configurations
+providers:
+  - name: anthropic
+    enabled: true
+    defaultModel: "claude-3-5-sonnet-20241022"
+    # apiKey: set via environment or keychain
+    
+  - name: openai
+    enabled: true
+    defaultModel: "gpt-4o-mini"
+    # apiKey: set via environment or keychain
+    
+  - name: ollama
+    enabled: true
+    baseUrl: "http://localhost:11434"
+    defaultModel: "codellama"

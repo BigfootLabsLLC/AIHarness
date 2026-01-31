@@ -1,0 +1,410 @@
+# Implementation Roadmap
+
+## Executive Summary
+This roadmap outlines a phased approach to building AIHarness, a multi-agent AI orchestration platform with cost-aware routing. The key innovation is enabling a **"premium guidance + cheap execution"** model where expensive models handle architecture and planning while cheaper models execute implementation tasks.
+
+---
+
+## Phase 1: Foundation (Weeks 1-3)
+
+### 1.1 Project Structure & Core Data Models
+**Goal:** Establish the codebase foundation and basic data structures.
+
+```
+aiharness/
+├── src/
+│   ├── models/
+│   │   ├── Document.ts          # Markdown with metadata
+│   │   ├── Prompt.ts            # Templated prompts
+│   │   ├── Project.ts           # Project container
+│   │   ├── Agent.ts             # ⭐ Agent session model
+│   │   └── Task.ts              # ⭐ Delegated task model
+│   ├── storage/
+│   │   ├── LocalStorage.ts      # File-based storage
+│   │   └── Database.ts          # Future: SQLite/PostgreSQL
+│   └── types/
+│       └── index.ts
+├── ui/
+│   ├── components/
+│   └── views/
+└── docs/
+```
+
+**Key Deliverables:**
+- [ ] Set up TypeScript/React (or similar) project structure
+- [ ] Define core TypeScript interfaces for all data models
+- [ ] Implement local file storage for documents
+- [ ] Create project initialization and configuration system
+
+### 1.2 Basic UI Layout
+**Goal:** Three-pane workspace with document tree and editor.
+
+**Components:**
+- Left Rail: Document/project tree with drag-and-drop
+- Center: Markdown editor with preview (split view)
+- Right Rail: Context panel for metadata/tags
+
+**Key Deliverables:**
+- [ ] Tree view component with folder navigation
+- [ ] Markdown editor (Monaco or CodeMirror)
+- [ ] Live preview renderer
+- [ ] Basic theming and layout persistence
+
+---
+
+## Phase 2: AI Provider Integration (Weeks 4-5)
+
+### 2.1 Provider Abstraction Layer
+**Goal:** Unified interface for all LLM providers with cost tracking.
+
+```typescript
+// Core abstraction
+interface LLMProvider {
+  readonly name: string;
+  readonly costPer1KInput: number;
+  readonly costPer1KOutput: number;
+  
+  sendPrompt(prompt: string, context: Context): Promise<LLMResponse>;
+  streamPrompt(prompt: string, context: Context): AsyncIterator<LLMChunk>;
+}
+
+interface LLMResponse {
+  content: string;
+  tokensIn: number;
+  tokensOut: number;
+  cost: number;
+  latency: number;
+  model: string;
+}
+```
+
+**Supported Providers (Phase 2):**
+- OpenAI (GPT-3.5, GPT-4)
+- Anthropic (Claude 3 Haiku/Sonnet/Opus)
+- Local Ollama
+
+**Key Deliverables:**
+- [ ] Provider interface and base class
+- [ ] OpenAI adapter with cost calculation
+- [ ] Anthropic adapter with cost calculation
+- [ ] Ollama adapter (local, cost = $0)
+- [ ] Provider credential management (secure storage)
+
+### 2.2 Cost Tracking Infrastructure
+**Goal:** Every API call tracked with detailed cost breakdown.
+
+```typescript
+interface CostLogEntry {
+  id: string;
+  timestamp: Date;
+  provider: string;
+  model: string;
+  tokensIn: number;
+  tokensOut: number;
+  costUSD: number;
+  taskId?: string;      // Link to task
+  agentId?: string;     // Link to agent
+  projectId: string;
+}
+```
+
+**Key Deliverables:**
+- [ ] Cost logging service
+- [ ] Real-time cost aggregation
+- [ ] Budget checking middleware
+- [ ] Cost dashboard UI (basic)
+
+---
+
+## Phase 3: Multi-Agent Core (Weeks 6-8)
+
+### 3.1 Agent Session Management
+**Goal:** Spawn, monitor, and manage multiple AI agents.
+
+```typescript
+interface Agent {
+  id: string;
+  name: string;
+  role: AgentRole;           // Architect, Implementer, Reviewer, etc.
+  provider: string;          // Which LLM provider
+  model: string;             // Specific model
+  status: AgentStatus;       // idle, working, waiting_review, error
+  
+  // Context management
+  systemPrompt: string;
+  conversationHistory: Message[];
+  maxContextTokens: number;
+  
+  // Cost tracking
+  totalCost: number;
+  costBudget?: number;       // Optional budget cap
+  
+  // Current work
+  currentTaskId?: string;
+}
+```
+
+**Agent Roles (Initial Set):**
+| Role | Model Tier | Typical Tasks |
+|------|------------|---------------|
+| Architect | Premium | High-level design, planning, reviews |
+| Implementer | Cheap | Code implementation, tests |
+| Reviewer | Medium | Code review, quality checks |
+| Tester | Cheap | Test case generation, validation |
+
+**Key Deliverables:**
+- [ ] Agent registry and factory
+- [ ] Agent session lifecycle (create, start, pause, resume, terminate)
+- [ ] Context window management (trimming, summarization)
+- [ ] Agent dashboard UI (list view with status)
+
+### 3.2 Task System & Delegation
+**Goal:** Break work into tasks and delegate to agents.
+
+```typescript
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  type: TaskType;            // architecture, spec, interface, implementation, review
+  
+  // Assignment
+  assignedTo?: string;       // Agent ID
+  reviewedBy?: string;       // For review tasks
+  
+  // Status workflow
+  status: TaskStatus;        // pending, in_progress, awaiting_review, approved, rejected
+  
+  // Dependencies
+  dependencies: string[];    // Task IDs that must complete first
+  blocks: string[];          // Task IDs blocked by this one
+  
+  // Work product
+  inputs: DocumentRef[];     // Context documents
+  outputs: DocumentRef[];    // Generated documents
+  
+  // Cost management
+  costBudget?: number;
+  costSpent: number;
+  
+  // Quality
+  reviewFeedback?: ReviewFeedback[];
+}
+```
+
+**Key Deliverables:**
+- [ ] Task queue and dependency resolver
+- [ ] Task assignment logic
+- [ ] Task status workflow engine
+- [ ] Task board UI (Kanban-style)
+
+### 3.3 Basic Delegation Workflow
+**Goal:** Architecture → Spec → Implementation pipeline.
+
+**Workflow Stages:**
+1. **Architecture** (Premium model)
+   - Input: High-level requirements
+   - Output: Architecture document with component breakdown
+   - Gate: Human approval required
+
+2. **Specification** (Premium or Medium model)
+   - Input: Architecture document
+   - Output: Detailed spec with interfaces
+   - Gate: Human approval optional
+
+3. **Implementation** (Cheap model)
+   - Input: Spec document
+   - Output: Code implementation
+   - Gate: Auto-submit for review
+
+4. **Review** (Medium model or different cheap model)
+   - Input: Implementation + Spec
+   - Output: Review feedback
+   - Gate: Human approval if issues found
+
+**Key Deliverables:**
+- [ ] Workflow definition engine
+- [ ] Stage transition logic with gates
+- [ ] Context passing between stages
+- [ ] Basic workflow UI (progress tracking)
+
+---
+
+## Phase 4: Advanced Orchestration (Weeks 9-11)
+
+### 4.1 Agent-to-Agent Review
+**Goal:** Agents review each other's work with feedback threads.
+
+```typescript
+interface ReviewFeedback {
+  id: string;
+  reviewerAgentId: string;
+  originalTaskId: string;
+  
+  // Review content
+  summary: string;
+  findings: Finding[];
+  
+  // Verdict
+  verdict: 'approve' | 'approve_with_nits' | 'request_changes' | 'reject';
+  confidence: number;        // 0-1, how sure is the reviewer
+}
+
+interface Finding {
+  severity: 'critical' | 'major' | 'minor' | 'nit';
+  location?: CodeLocation;
+  description: string;
+  suggestion?: string;
+}
+```
+
+**Key Deliverables:**
+- [ ] Review assignment system
+- [ ] Review prompt templates
+- [ ] Feedback collection UI
+- [ ] Dispute escalation (human in the loop)
+
+### 4.2 Cost-Aware Routing Engine
+**Goal:** Automatically select the cheapest capable model.
+
+```typescript
+interface RoutingRule {
+  id: string;
+  taskType: TaskType;
+  complexity: 'low' | 'medium' | 'high';
+  maxCost?: number;
+  minQuality?: number;
+  preferredProvider?: string;
+  fallbackChain: string[];   // Ordered list of models to try
+}
+
+// Example rule
+const implementationRule: RoutingRule = {
+  taskType: 'implementation',
+  complexity: 'low',
+  fallbackChain: ['gpt-3.5-turbo', 'claude-3-haiku', 'claude-3-sonnet'],
+};
+```
+
+**Routing Strategies:**
+- **Fixed:** Always use specified model
+- **Cost-Optimized:** Cheapest model in fallback chain
+- **Quality-Optimized:** Best quality within budget
+- **Adaptive:** Learn from past performance
+
+**Key Deliverables:**
+- [ ] Routing rule engine
+- [ ] Cost estimation before API calls
+- [ ] Quality scoring feedback loop
+- [ ] Routing configuration UI
+
+### 4.3 Results Aggregation
+**Goal:** Combine outputs from multiple cheap agents.
+
+**Use Cases:**
+- Generate 5 implementations with cheap model, pick best
+- Have 3 agents review same code, aggregate findings
+- Compare outputs to build consensus
+
+```typescript
+interface AggregationResult {
+  outputs: AgentOutput[];
+  consensusScore: number;
+  mergedOutput?: string;
+  disagreements: Disagreement[];
+}
+```
+
+**Key Deliverables:**
+- [ ] Parallel execution controller
+- [ ] Consensus scoring algorithm
+- [ ] Output merging strategies
+- [ ] Comparison UI
+
+---
+
+## Phase 5: Polish & Integration (Weeks 12-13)
+
+### 5.1 MCP/Tool Server Mode
+**Goal:** Expose AIHarness as a callable tool for external AIs.
+
+**Capabilities:**
+- Query documents by tag/project
+- Get agent status
+- Submit tasks
+- Retrieve cost reports
+
+**Key Deliverables:**
+- [ ] REST API server
+- [ ] Authentication/authorization
+- [ ] API documentation
+- [ ] Client SDK
+
+### 5.2 Harness Mode
+**Goal:** Built-in AI assistant for the UI itself.
+
+**Features:**
+- Natural language task creation
+- "Delegate this to an Implementer agent"
+- "Review this architecture"
+- Context-aware suggestions
+
+**Key Deliverables:**
+- [ ] In-app AI assistant
+- [ ] Context-aware prompting
+- [ ] Action execution (create task, spawn agent, etc.)
+
+### 5.3 Final Polish
+- [ ] Comprehensive testing
+- [ ] Documentation
+- [ ] Onboarding flow
+- [ ] Error handling and recovery
+
+---
+
+## Technical Stack Recommendations
+
+### Frontend
+- **Framework:** React + TypeScript
+- **State Management:** Zustand or Redux Toolkit
+- **UI Components:** Radix UI or Chakra UI
+- **Editor:** Monaco Editor (VS Code's editor)
+- **Charts:** Recharts for cost analytics
+
+### Backend (if needed for MCP server)
+- **Runtime:** Node.js with Express or Fastify
+- **Database:** SQLite (local) or PostgreSQL (team)
+- **ORM:** Prisma
+
+### AI Integration
+- **HTTP Clients:** Native fetch or axios
+- **Streaming:** Native ReadableStream
+- **Token Counting:** tiktoken (OpenAI) or provider APIs
+
+### Storage
+- **Documents:** Local filesystem with JSON metadata
+- **Config:** Electron-store or similar
+- **Cost Logs:** SQLite for queryability
+
+---
+
+## Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| API rate limits | Implement queuing with backoff |
+| Context window overflow | Automatic summarization and trimming |
+| Cost overruns | Hard budget caps with pre-call checks |
+| Agent loops/deadlocks | Timeout and max iteration limits |
+| Poor quality from cheap models | Review gates and feedback loops |
+| Provider outages | Multi-provider fallback chain |
+
+---
+
+## Success Metrics
+
+- **Cost Efficiency:** 60%+ cost reduction vs. using premium models for everything
+- **Quality Maintenance:** <10% regression in output quality
+- **Developer Velocity:** 2x faster from idea to implementation
+- **Agent Utilization:** >80% of tasks delegated without human intervention
+- **Review Accuracy:** >90% of agent reviews match human judgment
