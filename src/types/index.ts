@@ -1193,6 +1193,109 @@ export interface Bug extends Timestamped {
 }
 
 // ============================================================================
+// Client/Server Types ⭐ NEW
+// ============================================================================
+
+export type AppMode = 'standalone' | 'server' | 'client';
+export type ServerStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ConnectionQuality = 'excellent' | 'good' | 'fair' | 'poor';
+
+export interface ServerConfig {
+  id: ID;
+  name: string;
+  host: string;
+  port: number;
+  
+  // Security
+  useTls: boolean;
+  authToken?: string;
+  
+  // Auto-discovered
+  discoveredAt?: Date;
+  lastConnectedAt?: Date;
+}
+
+export interface ClientSession {
+  id: ID;
+  serverId: ID;
+  
+  // Connection
+  status: ServerStatus;
+  connectedAt?: Date;
+  disconnectedAt?: Date;
+  
+  // Quality
+  latencyMs?: number;
+  connectionQuality: ConnectionQuality;
+  
+  // State
+  isReconnecting: boolean;
+  offlineQueueLength: number;
+}
+
+export interface ServerInstance {
+  id: ID;
+  name: string;
+  
+  // Network
+  host: string;
+  port: number;
+  
+  // State
+  status: 'running' | 'stopped' | 'error';
+  startedAt?: Date;
+  
+  // Sessions
+  connectedClients: ID[];
+  activeSessions: ID[];
+  
+  // Resources
+  totalCostUSD: number;
+  activeAgents: number;
+  activeTasks: number;
+}
+
+export interface RemoteEvent {
+  id: ID;
+  timestamp: Date;
+  sessionId: ID;
+  
+  type: RemoteEventType;
+  payload: unknown;
+}
+
+export type RemoteEventType =
+  | 'agent_update'
+  | 'task_update'
+  | 'cost_update'
+  | 'message_received'
+  | 'file_changed'
+  | 'tool_output'
+  | 'heartbeat';
+
+export interface RemoteCommand {
+  id: ID;
+  sessionId: ID;
+  
+  type: RemoteCommandType;
+  payload: unknown;
+  
+  // Response tracking
+  sentAt: Date;
+  responseReceivedAt?: Date;
+  status: 'pending' | 'sent' | 'acknowledged' | 'completed' | 'error';
+}
+
+export type RemoteCommandType =
+  | 'spawn_agent'
+  | 'send_message'
+  | 'execute_tool'
+  | 'open_file'
+  | 'create_task'
+  | 'query_costs'
+  | 'heartbeat';
+
+// ============================================================================
 // API Types (for MCP Server)
 // ============================================================================
 

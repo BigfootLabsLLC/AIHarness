@@ -567,6 +567,31 @@ A "living" AI companion that runs on a tunable interval, proactively suggesting,
 
 ---
 
+## Phase 21: Client/Server Mode ⭐ NEW
+
+### Server Architecture
+- [ ] Headless server binary
+- [ ] WebSocket server implementation
+- [ ] gRPC service layer
+- [ ] Session persistence
+- [ ] Multi-client session sharing
+
+### Client Architecture
+- [ ] Thin client mode
+- [ ] Server discovery (mDNS)
+- [ ] Connection management UI
+- [ ] Reconnect/resume logic
+- [ ] Offline command queue
+
+### Communication
+- [ ] WebSocket bidirectional streaming
+- [ ] gRPC command protocol
+- [ ] File synchronization
+- [ ] TLS encryption
+- [ ] Authentication
+
+---
+
 ## Polish & Release
 
 ### Testing

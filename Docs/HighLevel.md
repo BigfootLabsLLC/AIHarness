@@ -106,3 +106,12 @@ This tool enables a **multi-agent orchestration paradigm** where:
 * **Directory listing optimization** - Tree view vs flat list based on context.
 * **Lazy loading** - Load file contents only when needed.
 * **Diff optimization** - Show only changed sections, not entire files.
+
+## Client/Server Mode ⭐ NEW
+* **Server mode** - Run AIHarness on powerful desktop as headless server.
+* **Thin client** - Laptop connects to server, UI streams locally.
+* **Local network** - Everything stays on your LAN, no cloud needed.
+* **Compute separation** - Desktop handles AI calls, agents, heavy lifting.
+* **Session persistence** - Disconnect laptop, server keeps working.
+* **Multi-client** - Connect from multiple devices simultaneously.
+* **Seamless sync** - Switch from local mode to server mode transparently.

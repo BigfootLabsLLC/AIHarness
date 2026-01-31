@@ -694,6 +694,40 @@ interface PanelParticipant {
 
 ---
 
+## Phase 17: Client/Server Mode (Weeks 43-46)
+
+### 17.1 Server Architecture
+**Goal:** Headless server running on powerful desktop.
+
+**Key Deliverables:**
+- [ ] Server binary (headless mode)
+- [ ] WebSocket server for client connections
+- [ ] gRPC service for commands
+- [ ] Session persistence
+- [ ] Multi-client support
+
+### 17.2 Client Architecture
+**Goal:** Thin client that connects to server.
+
+**Key Deliverables:**
+- [ ] Client mode UI
+- [ ] Server discovery (mDNS)
+- [ ] Connection management
+- [ ] Reconnect/resume logic
+- [ ] Offline queue (queue commands when disconnected)
+
+### 17.3 Communication Protocol
+**Goal:** Efficient bidirectional streaming.
+
+**Key Deliverables:**
+- [ ] WebSocket event streaming
+- [ ] gRPC command protocol
+- [ ] File sync (laptop ↔ desktop)
+- [ ] TLS encryption
+- [ ] Authentication/authorization
+
+---
+
 ## Technical Stack Recommendations
 
 ### Frontend

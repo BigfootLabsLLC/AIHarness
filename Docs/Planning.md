@@ -392,7 +392,48 @@
   - "This will use ~2K tokens" warnings
   - Optimization suggestions
 
-### 2.21 AI Interaction Modes
+### 2.21 Client/Server Mode ⭐ NEW
+- **Architecture**
+  - **Server**: Headless AIHarness running on powerful desktop
+    - Handles all AI API calls
+    - Runs agents and tasks
+    - Manages files and projects
+    - Persists sessions
+  - **Client**: Thin UI running on laptop
+    - Streams UI from server
+    - Minimal local compute
+    - Can disconnect/reconnect seamlessly
+    
+- **Local Network Communication**
+  - WebSocket for real-time bidirectional streaming
+  - gRPC for structured commands
+  - mDNS for automatic discovery (optional)
+  - TLS encryption (even on LAN)
+  
+- **Session Management**
+  - Server maintains state when client disconnects
+  - Reconnect to running sessions
+  - Multiple clients can view same session (read-only or collaborative)
+  - Graceful degradation if connection drops
+  
+- **Compute Separation**
+  - Desktop handles: AI calls, agent execution, Python runtime, file I/O
+  - Laptop handles: UI rendering, user input, display
+  - Optimized for: Desktop with GPU/CPU power, laptop with portability
+  
+- **Deployment Modes**
+  - **Standalone**: Everything local (current mode)
+  - **Server**: Headless on desktop
+  - **Client**: Connects to server
+  - **Hybrid**: Some tasks local, some delegated to server
+  
+- **Use Cases**
+  - Work from laptop, compute on desktop
+  - Desktop stays at home running long tasks
+  - Laptop connects to check progress, make changes
+  - Switch seamlessly between local and remote
+
+### 2.22 AI Interaction Modes
 - **Harness Mode**: Built-in collaborative AI can edit prompts, generate todos, and modify shared docs within the UI, using tooling like guided suggestions and contextual helpers.
 - **MCP/Tool Server Mode**: Expose the app as a callable MCP server or Python tool interface so external AIs can query documents, log todos, or request architecture guidance with authentication and audit trails.
 
