@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "aiharness": {
+      "command": "/Users/YOUR_USERNAME/.local/bin/aiharness-mcp-server",
+      "env": {
+        "AIH_DATA_DIR": "/Users/YOUR_USERNAME/.aiharness"
+      }
+    }
+  }
+}
