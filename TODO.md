@@ -38,6 +38,406 @@
 
 ---
 
+## Version 0.1 — "The Bridge" (MCP Server) — DETAILED BREAKDOWN
+
+### Overview
+**Goal:** Local MCP server that external AI tools can connect to. No built-in chat yet.
+
+**Success Criteria:** Configure Claude Desktop to use AIHarness MCP server, ask it to read files.
+
+---
+
+### Step 1: Project Scaffolding
+
+#### 1.1 Initialize Tauri Project
+- [ ] Run `npm create tauri-app@latest aiharness`
+  - [ ] Choose: React + TypeScript
+  - [ ] Choose: Cargo (Rust package manager)
+- [ ] Verify `cargo tauri dev` launches successfully
+- [ ] Verify React "Hello Vite + React" renders
+- [ ] **Tests:**
+  - [ ] App launches without panics
+  - [ ] Dev server responds
+  - [ ] Hot reload works
+
+#### 1.2 Configure Development Environment
+- [ ] Add `.gitignore` (Rust + Node standard)
+- [ ] Configure `rustfmt.toml`
+- [ ] Configure `.vscode/settings.json` (if using VS Code)
+- [ ] Add `clippy.toml` for lints
+- [ ] **Tests:**
+  - [ ] `cargo fmt` runs
+  - [ ] `cargo clippy` passes with no warnings
+  - [ ] `cargo build` succeeds
+
+#### 1.3 Setup Frontend Tooling
+- [ ] Install Tailwind CSS
+- [ ] Configure Tailwind with Vite
+- [ ] Install Zustand (state management)
+- [ ] Install TanStack Query (data fetching)
+- [ ] Add Vitest for testing
+- [ ] **Tests:**
+  - [ ] Tailwind classes work
+  - [ ] Vitest runs
+  - [ ] Example test passes
+
+---
+
+### Step 2: Core Data Types (Rust)
+
+#### 2.1 Define Core Structs
+- [ ] `ToolCall` struct (name, arguments)
+- [ ] `ToolResult` struct (success/error, output)
+- [ ] `ContextFile` struct (path, content hash, last read)
+- [ ] `McpRequest` / `McpResponse` types
+- [ ] **Tests (5+ each):**
+  - [ ] Serialization/deserialization
+  - [ ] Validation (empty fields, invalid data)
+  - [ ] Edge cases (very long paths, unicode)
+  - [ ] JSON roundtrip
+  - [ ] Clone/copy behavior
+
+#### 2.2 Error Types
+- [ ] `McpError` enum (IoError, InvalidRequest, ToolNotFound, etc.)
+- [ ] `ToolError` enum (FileNotFound, PermissionDenied, etc.)
+- [ ] Implement `std::error::Error` trait
+- [ ] **Tests (5+ each):**
+  - [ ] Error creation
+  - [ ] Error display messages
+  - [ ] Error conversion
+  - [ ] Error propagation
+  - [ ] JSON serialization of errors
+
+---
+
+### Step 3: Tool System (Rust)
+
+#### 3.1 Tool Trait Definition
+- [ ] Define `Tool` trait
+  - [ ] `name()` method
+  - [ ] `description()` method  
+  - [ ] `execute(args: Value) -> Result<ToolResult, ToolError>` method
+- [ ] **Tests:**
+  - [ ] Trait object creation
+  - [ ] Method dispatch
+  - [ ] Error handling
+  - [ ] Multiple tool implementations
+  - [ ] Trait bounds
+
+#### 3.2 File Tools
+- [ ] `ReadFile` tool
+  - [ ] Read file content
+  - [ ] Handle errors (not found, permission denied)
+  - [ ] Size limits (don't read 1GB files)
+  - [ ] **Tests (5+):**
+    - [ ] Read existing file
+    - [ ] File not found error
+    - [ ] Permission denied error
+    - [ ] Empty file
+    - [ ] Large file truncation
+    - [ ] Unicode content
+    - [ ] Binary file detection
+- [ ] `WriteFile` tool
+  - [ ] Write content to file
+  - [ ] Create directories if needed
+  - [ ] Atomic writes (write temp, then rename)
+  - [ ] **Tests (5+):**
+    - [ ] Write new file
+    - [ ] Overwrite existing file
+    - [ ] Create nested directories
+    - [ ] Permission denied
+    - [ ] Invalid path characters
+    - [ ] Atomic write verification
+    - [ ] Concurrent write safety
+- [ ] `ListDirectory` tool
+  - [ ] List files in directory
+  - [ ] Recursive option
+  - [ ] Filter by extension
+  - [ ] **Tests (5+):**
+    - [ ] List flat directory
+    - [ ] List recursively
+    - [ ] Empty directory
+    - [ ] Directory not found
+    - [ ] Filter by extension
+    - [ ] Hidden files option
+    - [ ] Large directory pagination
+- [ ] `SearchFiles` tool
+  - [ ] Grep-like search
+  - [ ] Regex support
+  - [ ] Result limit
+  - [ ] **Tests (5+):**
+    - [ ] Simple string search
+    - [ ] Regex search
+    - [ ] No matches
+    - [ ] Invalid regex
+    - [ ] Result limit respected
+    - [ ] Binary file skipping
+    - [ ] Case insensitive option
+
+#### 3.3 Tool Registry
+- [ ] `ToolRegistry` struct
+  - [ ] Register tools by name
+  - [ ] Lookup tools
+  - [ ] List available tools
+- [ ] **Tests (5+):**
+  - [ ] Register tool
+  - [ ] Lookup existing tool
+  - [ ] Lookup missing tool
+  - [ ] List all tools
+  - [ ] Duplicate registration handling
+  - [ ] Thread-safe registration
+
+---
+
+### Step 4: MCP Protocol Implementation
+
+#### 4.1 MCP Server Core
+- [ ] `McpServer` struct
+  - [ ] Initialize with tool registry
+  - [ ] Handle requests
+  - [ ] Send responses
+- [ ] Request parsing (JSON-RPC 2.0)
+- [ ] Response formatting
+- [ ] **Tests (5+):**
+  - [ ] Server initialization
+  - [ ] Valid request handling
+  - [ ] Invalid JSON handling
+  - [ ] Unknown method handling
+  - [ ] Response format correctness
+  - [ ] Concurrent request handling
+
+#### 4.2 MCP Methods
+- [ ] `initialize` (MCP protocol handshake)
+- [ ] `tools/list` (return available tools)
+- [ ] `tools/call` (execute a tool)
+- [ ] `resources/list` (return context files)
+- [ ] `resources/read` (read context file)
+- [ ] **Tests (5+ per method):**
+  - [ ] Valid request
+  - [ ] Missing parameters
+  - [ ] Invalid parameters
+  - [ ] Tool execution success
+  - [ ] Tool execution failure
+  - [ ] Resource not found
+
+#### 4.3 Stdio Transport
+- [ ] Read from stdin (line by line)
+- [ ] Write to stdout (JSON responses)
+- [ ] Handle EOF gracefully
+- [ ] **Tests (5+):**
+  - [ ] Single request/response
+  - [ ] Multiple requests
+  - [ ] Invalid JSON input
+  - [ ] Large request handling
+  - [ ] EOF handling
+  - [ ] Concurrent reads/writes
+
+---
+
+### Step 5: Context Management
+
+#### 5.1 Context Store
+- [ ] `ContextStore` struct
+  - [ ] Add file to context
+  - [ ] Remove file from context
+  - [ ] List context files
+  - [ ] Persist to SQLite
+- [ ] **Tests (5+):**
+  - [ ] Add file
+  - [ ] Remove file
+  - [ ] List files
+  - [ ] Persistence across restarts
+  - [ ] Duplicate handling
+  - [ ] Non-existent file handling
+
+#### 5.2 SQLite Schema
+- [ ] `context_files` table
+  - [ ] id, path, content_hash, added_at
+- [ ] `tool_calls` table (logging)
+  - [ ] id, tool_name, arguments, result, timestamp
+- [ ] Migration system
+- [ ] **Tests (5+):**
+  - [ ] Table creation
+  - [ ] Insert/select
+  - [ ] Migration up/down
+  - [ ] Concurrent access
+  - [ ] Error handling
+
+---
+
+### Step 6: Tauri Integration
+
+#### 6.1 Tauri Commands
+- [ ] `start_mcp_server` command
+- [ ] `stop_mcp_server` command
+- [ ] `get_server_status` command
+- [ ] `get_recent_tool_calls` command
+- [ ] **Tests (5+ per command):**
+  - [ ] Command success
+  - [ ] Command failure
+  - [ ] State transitions
+  - [ ] Event emission
+  - [ ] Error propagation to frontend
+
+#### 6.2 State Management
+- [ ] Global server state (running/stopped)
+- [ ] Tool call history (in-memory cache + DB)
+- [ ] Context file list
+- [ ] **Tests (5+):**
+  - [ ] State transitions
+  - [ ] Concurrent access
+  - [ ] Persistence
+  - [ ] Event notifications
+  - [ ] Resource cleanup
+
+#### 6.3 Events (Backend → Frontend)
+- [ ] `tool_call_executed` event
+- [ ] `server_status_changed` event
+- [ ] `context_updated` event
+- [ ] **Tests (5+):**
+  - [ ] Event emission
+  - [ ] Event payload
+  - [ ] Multiple listeners
+  - [ ] Event ordering
+  - [ ] Event filtering
+
+---
+
+### Step 7: React UI
+
+#### 7.1 Layout Components
+- [ ] `App` component (main layout)
+- [ ] `Sidebar` component (navigation)
+- [ ] `MainPanel` component (content area)
+- [ ] **Tests (5+ each):**
+  - [ ] Renders without errors
+  - [ ] Props handled correctly
+  - [ ] State changes
+  - [ ] Event handlers
+  - [ ] Accessibility (aria labels, etc.)
+
+#### 7.2 Server Status UI
+- [ ] `ServerStatus` component
+  - [ ] Show running/stopped state
+  - [ ] Start/Stop buttons
+  - [ ] Port display
+- [ ] **Tests (5+):**
+  - [ ] Displays correct status
+  - [ ] Button click handlers
+  - [ ] Loading states
+  - [ ] Error display
+  - [ ] State updates from backend
+
+#### 7.3 Tool Call Log
+- [ ] `ToolCallLog` component
+  - [ ] List recent tool calls
+  - [ ] Show tool name, arguments, result
+  - [ ] Expand for full details
+- [ ] **Tests (5+):**
+  - [ ] Renders list
+  - [ ] Empty state
+  - [ ] Expand/collapse
+  - [ ] Real-time updates
+  - [ ] Large list performance
+
+#### 7.4 Context Management UI
+- [ ] `ContextPanel` component
+  - [ ] List context files
+  - [ ] Add file button
+  - [ ] Remove file button
+- [ ] `AddFileDialog` component
+  - [ ] File picker
+  - [ ] Path validation
+- [ ] **Tests (5+ each):**
+  - [ ] Renders file list
+  - [ ] Add file flow
+  - [ ] Remove file flow
+  - [ ] Error handling
+  - [ ] Real-time sync
+
+#### 7.5 State Management (Zustand)
+- [ ] `useServerStore` (server status, port, etc.)
+- [ ] `useToolCallStore` (tool call history)
+- [ ] `useContextStore` (context files)
+- [ ] **Tests (5+ per store):**
+  - [ ] Initial state
+  - [ ] State updates
+  - [ ] Selectors
+  - [ ] Actions
+  - [ ] Persistence
+
+---
+
+### Step 8: Testing & Integration
+
+#### 8.1 End-to-End Tests
+- [ ] "Server starts and stops"
+- [ ] "Tool call flows through system"
+- [ ] "Context file appears in UI"
+- [ ] **Tests (5+):**
+  - [ ] Full user flow
+  - [ ] Error recovery
+  - [ ] Concurrent operations
+  - [ ] Restart behavior
+  - [ ] Resource cleanup
+
+#### 8.2 MCP Integration Test
+- [ ] Spawn MCP server as subprocess
+- [ ] Send JSON-RPC requests via stdin
+- [ ] Verify responses
+- [ ] **Tests (5+):**
+  - [ ] Initialize handshake
+  - [ ] List tools
+  - [ ] Call read_file
+  - [ ] Error handling
+  - [ ] Concurrent requests
+
+#### 8.3 Performance Tests
+- [ ] Large file read (10MB)
+- [ ] Many concurrent tool calls (100)
+- [ ] Large directory listing (10k files)
+- [ ] **Tests (5+):**
+  - [ ] Response time < 100ms for small files
+  - [ ] Memory usage stays bounded
+  - [ ] No memory leaks
+  - [ ] Graceful degradation
+  - [ ] Recovery from overload
+
+---
+
+### Step 9: Documentation & Packaging
+
+#### 9.1 Documentation
+- [ ] README.md (setup, build, run)
+- [ ] MCP configuration example for Claude Desktop
+- [ ] API documentation (MCP methods)
+- [ ] Architecture diagram
+
+#### 9.2 Build & Package
+- [ ] `cargo build --release` works
+- [ ] MCP server binary can be run standalone
+- [ ] Tauri app bundles correctly
+- [ ] **Tests:**
+  - [ ] Release build succeeds
+  - [ ] Binary runs on target platform
+  - [ ] No debug artifacts in release
+
+---
+
+### V0.1 Definition of Done Checklist
+
+- [ ] `cargo tauri dev` launches app
+- [ ] React UI shows server status
+- [ ] Click "Start Server" → server starts on localhost
+- [ ] Configure Claude Desktop MCP → connects successfully
+- [ ] Ask Claude: "Read file X" → AIHarness serves content
+- [ ] Tool call appears in UI log
+- [ ] Add file to context via UI → Claude can access it
+- [ ] All tests pass (100% of written tests)
+- [ ] Documentation complete
+
+---
+
 ## Phase 1: Core Infrastructure
 
 ### Data Layer (Rust)

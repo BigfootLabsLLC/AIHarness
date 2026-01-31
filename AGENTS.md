@@ -6,6 +6,40 @@
 
 ---
 
+## High-Level Directives
+
+### 1. AI-Developed First
+
+**This is an AI-developed application.** Everything must be buildable by AI without human intervention.
+
+- **Tight, testable loops** — Every component must be verifiable independently
+- **Self-sufficient compilation** — I should be able to compile and test without asking you
+- **Clear error messages** — If something fails, the error should be actionable
+- **Incremental development** — Small, working steps over big bangs
+
+### 2. Architecture Principles
+
+**UI Layer = Thin**
+- Minimal logic in React components
+- Logic and data live in central libraries (Rust backend)
+- UI is a "dumb" view layer
+- State management only for UI state, not business logic
+
+**Functional Programming Emphasis**
+- Pure functions over stateful classes
+- Immutable data structures
+- Explicit inputs and outputs
+- Avoid side effects; isolate them when necessary
+
+**Test Coverage**
+- **Minimum 5 tests per function** (often more)
+- Test edge cases, error cases, happy path
+- Property-based tests where applicable
+- Integration tests for boundaries
+- **Test first when possible** (TDD)
+
+---
+
 ## Core Philosophy
 
 1. **Clarity over cleverness.** Code should be obvious to a human reading it.
@@ -32,6 +66,33 @@
 ---
 
 ## Rust Guidelines
+
+### Functional Programming (Required)
+
+```rust
+// DO: Pure functions with explicit inputs/outputs
+pub fn calculate_cost(tokens_in: u32, tokens_out: u32, rate: &ModelRate) -> f64 {
+    (tokens_in as f64 * rate.input_cost_per_1k / 1000.0) +
+    (tokens_out as f64 * rate.output_cost_per_1k / 1000.0)
+}
+
+// DON'T: Stateful classes with hidden dependencies
+// BAD: impl Calculator { fn new(rate: ModelRate) -> Self; fn calculate(&self, ...) }
+// GOOD: Pure function that takes rate as parameter
+
+// DO: Immutable data, return new values
+pub fn add_tool(tools: Vec<Tool>, tool: Tool) -> Vec<Tool> {
+    let mut new_tools = tools;
+    new_tools.push(tool);
+    new_tools
+}
+
+// DO: Result/Option for error handling, not exceptions
+pub fn read_file(path: &Path) -> Result<String, FileError> {
+    fs::read_to_string(path)
+        .map_err(|e| FileError::ReadFailed(e.to_string()))
+}
+```
 
 ### Code Style
 
@@ -154,6 +215,78 @@ pub struct AgentManager {
 ---
 
 ## TypeScript/React Guidelines
+
+### Thin UI Layer (Critical)
+
+**UI components should be "dumb" views. All logic in Rust backend.**
+
+```typescript
+// DO: UI calls Rust command, displays result
+export function FileViewer({ path }: { path: string }) {
+  const [content, setContent] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  useEffect(() => {
+    setIsLoading(true);
+    invoke<string>('read_file', { path })
+      .then(setContent)
+      .finally(() => setIsLoading(false));
+  }, [path]);
+  
+  if (isLoading) return <Spinner />;
+  return <MonacoEditor value={content} readOnly />;
+}
+
+// DON'T: Business logic in UI
+// BAD: Parsing, calculations, state machines in React
+// GOOD: Just display what Rust gives you
+
+// DO: Custom hooks for data fetching, not logic
+export function useFileContent(path: string) {
+  return useQuery({
+    queryKey: ['file', path],
+    queryFn: () => invoke<string>('read_file', { path }),
+  });
+}
+```
+
+### Functional Programming (TypeScript)
+
+```typescript
+// DO: Pure functions
+type CostCalculator = (tokensIn: number, tokensOut: number, rate: ModelRate) => number;
+
+const calculateCost: CostCalculator = (tokensIn, tokensOut, rate) => {
+  return (tokensIn * rate.inputCostPer1k / 1000) +
+         (tokensOut * rate.outputCostPer1k / 1000);
+};
+
+// DO: Immutable updates
+const addTool = (tools: Tool[], tool: Tool): Tool[] => [...tools, tool];
+
+// DO: Avoid classes, use functions and types
+type Agent = {
+  id: string;
+  name: string;
+  status: AgentStatus;
+};
+
+// Not: class Agent { ... }
+
+// DO: Explicit error handling
+type Result<T, E = Error> = 
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+const readFile = async (path: string): Promise<Result<string>> => {
+  try {
+    const content = await invoke<string>('read_file', { path });
+    return { ok: true, value: content };
+  } catch (error) {
+    return { ok: false, error: error as Error };
+  }
+};
+```
 
 ### Type Safety
 
@@ -344,28 +477,128 @@ Before submitting code:
 
 ## Testing Guidelines
 
-### Rust Tests
+### Minimum 5 Tests Per Function
+
+**Every function must have at least 5 tests:**
+1. Happy path (normal input)
+2. Edge case (empty, zero, max values)
+3. Error case (invalid input)
+4. Boundary case (at limits)
+5. Property-based or fuzz test (if applicable)
+
+Additional tests for:
+- Concurrency/thread safety
+- Performance characteristics
+- Integration with dependencies
 
 ```rust
 #[cfg(test)]
 mod tests {
     use super::*;
     
-    // DO: Unit test pure functions
+    // Example: calculate_cost - 6 tests
+    
     #[test]
-    fn test_calculate_cost() {
-        let result = calculate_cost(1000, 500, &MODEL_GPT4);
-        assert_eq!(result, 0.045); // $0.045 per call
+    fn calculate_cost_happy_path() {
+        let rate = ModelRate::new(0.01, 0.03); // $0.01 in, $0.03 out per 1k
+        let cost = calculate_cost(1000, 1000, &rate);
+        assert_eq!(cost, 0.04); // $0.01 + $0.03
     }
     
-    // DO: Async tests with tokio::test
+    #[test]
+    fn calculate_cost_zero_tokens() {
+        let rate = ModelRate::new(0.01, 0.03);
+        let cost = calculate_cost(0, 0, &rate);
+        assert_eq!(cost, 0.0);
+    }
+    
+    #[test]
+    fn calculate_cost_large_numbers() {
+        let rate = ModelRate::new(0.01, 0.03);
+        let cost = calculate_cost(1_000_000, 1_000_000, &rate);
+        assert_eq!(cost, 40.0); // $10 + $30
+    }
+    
+    #[test]
+    fn calculate_cost_fractional_tokens() {
+        let rate = ModelRate::new(0.01, 0.03);
+        let cost = calculate_cost(1, 1, &rate);
+        assert!((cost - 0.00004).abs() < 0.00001);
+    }
+    
+    #[test]
+    fn calculate_cost_different_rates() {
+        let cheap = ModelRate::new(0.001, 0.002);
+        let expensive = ModelRate::new(0.1, 0.3);
+        
+        assert!(calculate_cost(1000, 1000, &cheap) < 
+                calculate_cost(1000, 1000, &expensive));
+    }
+    
+    #[test]
+    fn calculate_cost_precision() {
+        let rate = ModelRate::new(0.015, 0.045); // Odd rates
+        let cost = calculate_cost(333, 666, &rate);
+        // Verify precision is maintained
+        assert!(cost > 0.0);
+        assert!(cost < 1.0);
+    }
+    
+    // Async test example
     #[tokio::test]
-    async fn test_spawn_agent() {
+    async fn spawn_agent_creates_valid_agent() {
         let manager = AgentManager::new(mock_db()).await;
-        let agent = manager.spawn_agent(test_config()).await.unwrap();
+        let config = AgentConfig::builder()
+            .model("test-model")
+            .build();
+            
+        let agent = manager.spawn_agent(config).await.unwrap();
+        
         assert_eq!(agent.status, AgentStatus::Idle);
+        assert!(!agent.id.is_empty());
+        assert!(agent.created_at <= Utc::now());
+    }
+    
+    #[tokio::test]
+    async fn spawn_agent_fails_with_invalid_model() {
+        let manager = AgentManager::new(mock_db()).await;
+        let config = AgentConfig::builder()
+            .model("") // Invalid
+            .build();
+            
+        let result = manager.spawn_agent(config).await;
+        assert!(result.is_err());
     }
 }
+```
+
+### Test-Driven Development (Preferred)
+
+```rust
+// 1. Write test first
+#[test]
+fn parse_tool_call_valid_json() {
+    let input = r#"{"name": "read_file", "args": {"path": "/tmp/test"}}"#;
+    let result = parse_tool_call(input);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().name, "read_file");
+}
+
+// 2. Implement to make test pass
+pub fn parse_tool_call(input: &str) -> Result<ToolCall, ParseError> {
+    serde_json::from_str(input)
+        .map_err(|e| ParseError::InvalidJson(e.to_string()))
+}
+
+// 3. Add more tests for edge cases
+#[test]
+fn parse_tool_call_invalid_json() { ... }
+#[test]
+fn parse_tool_call_missing_name() { ... }
+#[test]
+fn parse_tool_call_empty_args() { ... }
+#[test]
+fn parse_tool_call_nested_args() { ... }
 ```
 
 ### TypeScript Tests
