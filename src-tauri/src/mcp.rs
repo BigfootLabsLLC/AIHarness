@@ -244,12 +244,56 @@ impl McpServer {
 
         let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
 
+        // Log tool call start to stderr (structured for GUI)
+        let start_time = std::time::Instant::now();
+        let call_id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        
+        eprintln!("{}", json!({
+            "event": "tool_call_start",
+            "id": &call_id,
+            "timestamp": &timestamp,
+            "tool_name": name,
+            "arguments": &arguments
+        }));
+
         let tool = self.tool_registry
             .get(name)
             .ok_or_else(|| McpError::ToolNotFound(name.to_string()))?;
 
-        let result = tool.execute(arguments).await
-            .map_err(|e| McpError::ToolExecutionFailed(e.to_string()))?;
+        let result = match tool.execute(arguments.clone()).await {
+            Ok(r) => {
+                // Log successful tool call
+                let duration_ms = start_time.elapsed().as_millis() as u64;
+                eprintln!("{}", json!({
+                    "event": "tool_call_end",
+                    "id": &call_id,
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                    "tool_name": name,
+                    "arguments": &arguments,
+                    "success": true,
+                    "content": &r.content,
+                    "duration_ms": duration_ms
+                }));
+                r
+            }
+            Err(e) => {
+                // Log failed tool call
+                let duration_ms = start_time.elapsed().as_millis() as u64;
+                let error_msg = e.to_string();
+                eprintln!("{}", json!({
+                    "event": "tool_call_end",
+                    "id": &call_id,
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                    "tool_name": name,
+                    "arguments": &arguments,
+                    "success": false,
+                    "content": &error_msg,
+                    "duration_ms": duration_ms
+                }));
+                return Err(McpError::ToolExecutionFailed(error_msg));
+            }
+        };
 
         Ok(json!({
             "content": [

@@ -129,32 +129,32 @@ async fn start_server(
         .spawn()
         .map_err(|e| format!("Failed to start MCP server: {}", e))?;
     
-    // Spawn a task to read stderr and log it
+    // Spawn a task to read stderr (tool call events) and emit to GUI
     if let Some(stderr) = child.stderr.take() {
+        let app_handle_clone = app_handle.clone();
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
             let mut lines = reader.lines();
             
             while let Ok(Some(line)) = lines.next_line().await {
                 tracing::info!("[MCP Server] {}", line);
+                
+                // Try to parse as tool call event and emit to GUI
+                if let Ok(event) = parse_tool_call_event(&line) {
+                    let _ = app_handle_clone.emit("tool-call", event);
+                }
             }
         });
     }
     
-    // Spawn a task to read stdout (tool calls) and emit events
+    // Spawn a task to read stdout (just for logging)
     if let Some(stdout) = child.stdout.take() {
-        let app_handle_clone = app_handle.clone();
         tokio::spawn(async move {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
             
             while let Ok(Some(line)) = lines.next_line().await {
                 tracing::info!("[MCP Output] {}", line);
-                
-                // Try to parse as tool call and emit event
-                if let Ok(event) = parse_tool_call_from_line(&line) {
-                    let _ = app_handle_clone.emit("tool-call", event);
-                }
             }
         });
     }
@@ -265,31 +265,33 @@ async fn list_context_files(
     Ok(infos)
 }
 
-/// Parse a tool call from MCP server output line
-fn parse_tool_call_from_line(line: &str) -> Result<ToolCallEvent, Box<dyn std::error::Error>> {
-    // This is a simplified parser - in production you'd want proper JSON-RPC parsing
-    // For now, we'll create mock events for demonstration
+/// Parse a tool call event from MCP server stderr
+fn parse_tool_call_event(line: &str) -> Result<ToolCallEvent, Box<dyn std::error::Error>> {
+    // Parse the structured JSON event from MCP server stderr
+    let json: serde_json::Value = serde_json::from_str(line)?;
     
-    // Try to parse as JSON-RPC response
-    if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-        if let Some(result) = json.get("result") {
-            if let Some(content) = result.get("content") {
-                if let Some(text) = content.get(0).and_then(|c| c.get("text")).and_then(|t| t.as_str()) {
-                    return Ok(ToolCallEvent {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        tool_name: "unknown".to_string(),
-                        arguments: serde_json::json!({}),
-                        success: true,
-                        content: text.to_string(),
-                        duration_ms: 0,
-                    });
-                }
-            }
-        }
+    // Check if this is a tool_call_end event (we only care about completed calls)
+    if json.get("event").and_then(|e| e.as_str()) != Some("tool_call_end") {
+        return Err("Not a tool call end event".into());
     }
     
-    Err("Not a tool call".into())
+    let id = json.get("id").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+    let timestamp = json.get("timestamp").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let tool_name = json.get("tool_name").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+    let arguments = json.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+    let success = json.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+    let content = json.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let duration_ms = json.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0);
+    
+    Ok(ToolCallEvent {
+        id,
+        timestamp,
+        tool_name,
+        arguments,
+        success,
+        content,
+        duration_ms,
+    })
 }
 
 /// Initialize the Tauri application
