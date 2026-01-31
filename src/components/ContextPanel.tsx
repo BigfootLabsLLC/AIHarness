@@ -1,48 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useServerStore } from '../stores/serverStore';
-import type { ContextFile } from '../types';
-
-// Mock data for demonstration
-const mockFiles: ContextFile[] = [
-  {
-    id: '1',
-    path: '/Users/user/project/README.md',
-    addedAt: new Date().toISOString(),
-  },
-  {
-    id: '2', 
-    path: '/Users/user/project/src/main.rs',
-    addedAt: new Date(Date.now() - 3600000).toISOString(),
-    lastReadAt: new Date().toISOString(),
-  },
-];
 
 function ContextPanel() {
-  const { contextFiles, setContextFiles, addContextFile, removeContextFile } = useServerStore();
+  const { contextFiles, loadContextFiles, addContextFile, removeContextFile } = useServerStore();
   const [newPath, setNewPath] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  // Load mock data on first render if empty
-  if (contextFiles.length === 0 && mockFiles.length > 0) {
-    setContextFiles(mockFiles);
-  }
+  // Load context files on mount
+  useEffect(() => {
+    loadContextFiles();
+  }, [loadContextFiles]);
 
-  const handleAddFile = () => {
+  const handleAddFile = async () => {
     if (!newPath.trim()) return;
 
-    const file: ContextFile = {
-      id: Date.now().toString(),
-      path: newPath.trim(),
-      addedAt: new Date().toISOString(),
-    };
-
-    addContextFile(file);
+    await addContextFile(newPath.trim());
     setNewPath('');
     setIsAdding(false);
   };
 
-  const handleRemoveFile = (id: string) => {
-    removeContextFile(id);
+  const handleRemoveFile = async (id: string, path: string) => {
+    await removeContextFile(id, path);
+  };
+
+  const handleBrowse = async () => {
+    // For now, prompt for path manually
+    // In a full implementation, we'd use a native file picker
+    const path = prompt('Enter absolute path to file:');
+    if (path) {
+      await addContextFile(path.trim());
+    }
   };
 
   const formatPath = (path: string) => {
@@ -51,24 +38,37 @@ function ContextPanel() {
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      return new Date(timestamp).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return 'Unknown';
+    }
   };
 
   return (
     <div className="panel">
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
         <h2 className="text-lg font-semibold text-gray-800">Context Files</h2>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-        >
-          + Add
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleBrowse}
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            title="Browse for file"
+          >
+            Browse
+          </button>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            + Add
+          </button>
+        </div>
       </div>
 
       {/* Add file dialog */}
@@ -142,7 +142,7 @@ function ContextPanel() {
                 </p>
               </div>
               <button
-                onClick={() => handleRemoveFile(file.id)}
+                onClick={() => handleRemoveFile(file.id, file.path)}
                 className="ml-2 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Remove from context"
               >

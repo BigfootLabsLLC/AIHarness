@@ -1,17 +1,23 @@
 /// Types for AIHarness MCP Server UI
 
-/** Server status */
-export type ServerStatus = 'stopped' | 'starting' | 'running' | 'error';
+/** Server status states */
+export type ServerStatusState = 'stopped' | 'starting' | 'running' | 'error';
+
+/** Server status from backend */
+export interface ServerStatus {
+  running: boolean;
+  port?: number;
+}
 
 /** Tool call record */
 export interface ToolCall {
   id: string;
   timestamp: string;
-  toolName: string;
+  tool_name: string;
   arguments: Record<string, unknown>;
   success: boolean;
   content: string;
-  durationMs?: number;
+  duration_ms: number;
 }
 
 /** Context file */

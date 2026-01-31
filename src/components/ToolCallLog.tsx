@@ -83,13 +83,13 @@ function ToolCallItem({ call, isExpanded, onToggle, formatTime, truncate }: Tool
             call.success ? 'bg-green-500' : 'bg-red-500'
           }`} />
           <span className="font-medium text-sm text-gray-900">
-            {call.toolName}
+            {call.tool_name}
           </span>
         </div>
         <div className="flex items-center space-x-3">
-          {call.durationMs && (
+          {call.duration_ms > 0 && (
             <span className="text-xs text-gray-400">
-              {call.durationMs}ms
+              {call.duration_ms}ms
             </span>
           )}
           <span className="text-xs text-gray-400">

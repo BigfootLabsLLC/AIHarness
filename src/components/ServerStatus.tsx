@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { useServerStore } from '../stores/serverStore';
-import type { ServerStatus as Status } from '../types';
+import type { ServerStatusState as Status } from '../types';
 
 const statusConfig: Record<Status, { label: string; className: string }> = {
   stopped: { 
@@ -21,22 +22,18 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
 };
 
 function ServerStatus() {
-  const { status, port, error, setStatus, setPort, setError } = useServerStore();
+  const { status, error, startServer, stopServer, initialize } = useServerStore();
 
-  const handleToggleServer = () => {
+  // Initialize on mount
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  const handleToggleServer = async () => {
     if (status === 'running') {
-      // Stop server
-      setStatus('stopped');
-      setPort(null);
-      setError(null);
-    } else if (status === 'stopped') {
-      // Start server
-      setStatus('starting');
-      // Simulate server start (in real implementation, this would call Tauri command)
-      setTimeout(() => {
-        setStatus('running');
-        setPort(8080);
-      }, 1000);
+      await stopServer();
+    } else if (status === 'stopped' || status === 'error') {
+      await startServer();
     }
   };
 
@@ -55,16 +52,6 @@ function ServerStatus() {
         }`} />
         {statusStyle.label}
       </div>
-
-      {/* Port info */}
-      {port && (
-        <div className="mt-4 text-sm">
-          <span className="text-gray-500">Port:</span>
-          <code className="ml-2 px-2 py-1 bg-gray-100 rounded text-gray-700 font-mono">
-            {port}
-          </code>
-        </div>
-      )}
 
       {/* Error message */}
       {error && (
@@ -95,16 +82,25 @@ function ServerStatus() {
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="grid grid-cols-2 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-gray-900">-</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Clients</div>
+              <div className="text-2xl font-bold text-gray-900">Active</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Status</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900">-</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Uptime</div>
+              <div className="text-2xl font-bold text-gray-900">stdio</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Transport</div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Instructions */}
+      <div className="mt-4 text-xs text-gray-500">
+        {status === 'running' ? (
+          <p>MCP Server is running. Configure Claude Desktop to use it.</p>
+        ) : (
+          <p>Start the server to enable MCP connections.</p>
+        )}
+      </div>
     </div>
   );
 }
