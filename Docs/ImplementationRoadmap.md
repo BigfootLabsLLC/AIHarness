@@ -321,6 +321,52 @@ interface AggregationResult {
 - [ ] Output merging strategies
 - [ ] Comparison UI
 
+### 4.4 Expert Panel System ⭐ NEW
+**Goal:** "Poll the Experts" - query multiple models simultaneously and compare responses.
+
+**Modes:**
+
+1. **Poll Mode** (Simple)
+   - Send same question to 3-7 models
+   - Side-by-side response comparison
+   - Cost and latency comparison per model
+
+2. **Debate Mode** (Advanced)
+   - Round-robin: each model responds to others
+   - Critique and revise positions
+   - Final consensus or majority vote
+
+3. **Synthesis Mode**
+   - Generate unified answer from all responses
+   - Highlight areas of agreement/disagreement
+   - Attribute specific claims to models
+
+```typescript
+interface ExpertPanel {
+  id: string;
+  prompt: string;
+  mode: 'poll' | 'debate' | 'synthesis';
+  participants: PanelParticipant[];
+  responses: PanelResponse[];
+  consensusReport?: ConsensusReport;
+}
+
+interface PanelParticipant {
+  modelId: string;
+  provider: string;
+  role?: string;        // e.g., "Skeptic", "Optimist"
+  weight: number;       // For weighted consensus
+}
+```
+
+**Key Deliverables:**
+- [ ] Panel configuration UI (select models, set roles)
+- [ ] Parallel query execution to multiple providers
+- [ ] Side-by-side response comparison UI
+- [ ] Variance analysis (semantic similarity, disagreement detection)
+- [ ] Consensus scoring and visualization
+- [ ] Cost comparison per model
+
 ---
 
 ## Phase 5: Polish & Integration (Weeks 12-13)
@@ -359,6 +405,37 @@ interface AggregationResult {
 - [ ] Documentation
 - [ ] Onboarding flow
 - [ ] Error handling and recovery
+
+---
+
+## Phase 6: Advanced Features (Weeks 14-16)
+
+### 6.1 Structured Debate Mode ⭐ NEW
+**Goal:** Multi-round debates where models critique and revise positions.
+
+**Flow:**
+1. **Opening Statements** - Each model presents initial position
+2. **Critique Round** - Each model critiques others' positions
+3. **Revision Round** - Models revise based on feedback
+4. **Final Position** - Models state final consensus or disagreement
+5. **Synthesis** - Generate unified answer with dissent notes
+
+**Key Deliverables:**
+- [ ] Debate orchestration engine
+- [ ] Round management and sequencing
+- [ ] Transcript generation
+- [ ] Revision diff visualization
+- [ ] Dissent recording and attribution
+
+### 6.2 Advanced Cost Optimization
+- [ ] Learned routing preferences based on past results
+- [ ] Cost forecasting for planned work
+- [ ] Smart batching of similar requests
+
+### 6.3 Team Collaboration Features
+- [ ] Shared agent pools across team
+- [ ] Workspace sharing and permissions
+- [ ] Comment threads on agent outputs
 
 ---
 

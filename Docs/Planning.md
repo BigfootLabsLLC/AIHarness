@@ -95,11 +95,42 @@
   - Model comparison reports (cost vs. quality for different task types)
   - Export for expense tracking
 
-### 2.10 AI Interaction Modes
+### 2.10 AI Debate & Expert Panels ⭐ NEW
+- **Poll the Experts Mode**
+  - Submit a question to a panel of 3-7 models simultaneously
+  - Side-by-side response comparison with highlighting
+  - Cost breakdown per model (useful for comparing cheap vs. expensive)
+  - Response time tracking
+  
+- **Model Variance Analysis**
+  - Automatic detection of agreement/disagreement points
+  - Semantic similarity scoring between responses
+  - Controversy heatmap showing where models diverge most
+  - Confidence indicators based on consensus level
+  
+- **Structured Debate Mode**
+  - Round-robin critique: each model responds to others' answers
+  - Synthesis round: models revise their positions based on critiques
+  - Final vote/position on the question
+  - Debate transcript with threaded discussion view
+  
+- **Consensus Aggregation**
+  - Merge multiple responses into single synthesized answer
+  - Attribute specific claims to originating models
+  - Highlight areas of strong consensus vs. uncertainty
+  - Export panel results as annotated document
+  
+- **Expert Panel Templates**
+  - Pre-defined panels: "Code Review Panel", "Architecture Review", "Research Panel"
+  - Custom panel creation with model selection and roles
+  - Save favorite panel configurations
+  - Weighted consensus (trust some models more than others)
+
+### 2.11 AI Interaction Modes
 - **Harness Mode**: Built-in collaborative AI can edit prompts, generate todos, and modify shared docs within the UI, using tooling like guided suggestions and contextual helpers.
 - **MCP/Tool Server Mode**: Expose the app as a callable MCP server or Python tool interface so external AIs can query documents, log todos, or request architecture guidance with authentication and audit trails.
 
-### 2.11 Commercial Product Readiness
+### 2.12 Commercial Product Readiness
 - Onboarding flow, usage analytics, and feature differentiation for paying customers.
 - Security controls around local storage, exports, and shared MCP endpoints.
 - Shared libraries (UI/data modules) to avoid reinventing components and support future surfaces.
@@ -121,6 +152,8 @@
   - **NEW - Agents**: agent sessions with model, role, status, context window, cost spent.
   - **NEW - Tasks**: delegated tasks with owner, reviewer, dependencies, cost budget.
   - **NEW - CostLog**: per-call cost tracking with model, tokens, timestamp.
+  - **NEW - ExpertPanels**: panel configurations, debate sessions, model responses.
+  - **NEW - PanelResponses**: individual model responses with metadata.
   
 - **UI Layers**
   - Side rail for navigation (contexts, tools, prompts, reviews).
@@ -128,6 +161,7 @@
   - Modal/system overlay for adding metadata or connecting to local AI.
   - **NEW - Agent Orchestration Panel**: dashboard for managing multiple agents.
   - **NEW - Cost Monitor**: real-time budget display and spend alerts.
+  - **NEW - Expert Panel Interface**: side-by-side response comparison, debate view.
 
 ### 3.2 Implementation Phases
 
@@ -174,18 +208,24 @@
    - Dispute escalation to human
    - Review quality metrics
 
-9. **Review & Planning Workspace**
-   - Diff capture (integration or manual).
-   - Threaded notes/AI feedback view with status toggles.
-   - Task generation from review findings.
+9. **Expert Panel System** ⭐ NEW
+   - Panel configuration (select models, set roles)
+   - Parallel query execution to multiple providers
+   - Side-by-side response comparison UI
+   - Variance analysis and consensus scoring
+
+10. **Review & Planning Workspace**
+    - Diff capture (integration or manual).
+    - Threaded notes/AI feedback view with status toggles.
+    - Task generation from review findings.
 
 #### Phase 5: AI Interaction Layers
-10. **Harness Mode Implementation**
+11. **Harness Mode Implementation**
     - Built-in AI collaboration UI
     - Action logging and permission controls
     - Guided helpers for common tasks
 
-11. **MCP/Tool Server Mode**
+12. **MCP/Tool Server Mode**
     - Expose Python/REST interface for external AIs
     - Telemetry and security hooks
     - Authentication adapters for all supported providers
@@ -201,7 +241,13 @@
     - Output merging and conflict resolution
     - Confidence scoring
 
-14. **Sandboxed Content Access**
+14. **Structured Debate Mode** ⭐ NEW
+    - Round-robin critique workflow
+    - Response revision tracking
+    - Debate transcript generation
+    - Final consensus position
+
+15. **Sandboxed Content Access**
     - Directory registration and snapshots
     - Safe query APIs for prompts and AI runners
     - Remote server connections
@@ -223,6 +269,9 @@
 - [ ] Design approval workflow UX (when to interrupt vs. auto-approve)
 - [ ] Plan agent communication protocol (how agents share context)
 - [ ] Define review quality metrics and feedback loops
+- [ ] Design expert panel configurations (which models, what roles)
+- [ ] Define consensus scoring algorithms for multi-model responses
+- [ ] Plan debate moderation rules and round structures
 
 ### Documentation & Visuals
 - [ ] Create UX sketches for navigation/workspace layout.
@@ -233,6 +282,9 @@
 - [ ] Create cost monitoring UI wireframes
 - [ ] Document delegation workflow diagrams
 - [ ] Design agent-to-agent review interface
+- [ ] Design expert panel comparison UI (side-by-side view)
+- [ ] Create debate mode interaction wireframes
+- [ ] Design consensus visualization components
 
 ### Implementation Prep
 - [ ] Inventory existing markdown/context that users want preserved.
@@ -245,6 +297,9 @@
 - [ ] Evaluate task queue systems for multi-agent coordination
 - [ ] Research consensus algorithms for aggregating agent outputs
 - [ ] Plan agent context serialization format
+- [ ] Research semantic similarity algorithms for response comparison
+- [ ] Investigate parallel query execution patterns
+- [ ] Evaluate text diff algorithms for finding model disagreements
 
 ### Process & Collaboration
 - [ ] Set review cadence (e.g., weekly planning updates).

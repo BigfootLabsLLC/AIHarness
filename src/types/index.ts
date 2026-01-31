@@ -514,6 +514,156 @@ export interface WorkspaceState {
 }
 
 // ============================================================================
+// Expert Panel Types
+// ============================================================================
+
+export type PanelMode = 'poll' | 'debate' | 'synthesis';
+
+export type PanelStatus = 
+  | 'configuring'
+  | 'queuing'
+  | 'running'
+  | 'awaiting_responses'
+  | 'analyzing'
+  | 'completed'
+  | 'cancelled';
+
+export interface ExpertPanel extends Timestamped {
+  id: ID;
+  projectId: ID;
+  
+  // Configuration
+  name: string;
+  description?: string;
+  mode: PanelMode;
+  
+  // Participants
+  participants: PanelParticipant[];
+  
+  // The question/prompt
+  prompt: string;
+  contextDocumentIds?: ID[];
+  
+  // Settings
+  maxRounds?: number;       // For debate mode
+  anonymousResponses: boolean;
+  showCostComparison: boolean;
+  
+  // State
+  status: PanelStatus;
+  currentRound: number;
+  
+  // Results
+  responses: PanelResponse[];
+  consensusReport?: ConsensusReport;
+  debateTranscript?: DebateRound[];
+  
+  // Cost
+  totalCostUSD: number;
+  budgetUSD?: number;
+}
+
+export interface PanelParticipant {
+  id: ID;
+  modelId: string;          // e.g., "claude-3-5-sonnet"
+  provider: ProviderName;
+  role?: string;            // e.g., "Skeptic", "Optimist", "Expert"
+  weight: number;           // For weighted consensus (default: 1)
+  systemPrompt?: string;    // Override for this panel
+  isActive: boolean;
+}
+
+export interface PanelResponse {
+  id: ID;
+  panelId: ID;
+  participantId: ID;
+  
+  // Content
+  content: string;
+  rawResponse: string;
+  
+  // Metadata
+  round: number;
+  timestamp: Date;
+  latencyMs: number;
+  
+  // Cost
+  costUSD: number;
+  tokensIn: number;
+  tokensOut: number;
+  
+  // Analysis
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  keyPoints?: string[];
+}
+
+export interface ConsensusReport {
+  generatedAt: Date;
+  
+  // Agreement metrics
+  agreementScore: number;   // 0-1, how much models agree
+  disagreementAreas: DisagreementArea[];
+  
+  // Synthesis
+  synthesizedAnswer?: string;
+  keyConsensusPoints: string[];
+  contestedPoints: string[];
+  
+  // Model contributions
+  contributionBreakdown: ModelContribution[];
+}
+
+export interface DisagreementArea {
+  topic: string;
+  severity: 'minor' | 'moderate' | 'significant';
+  positions: ModelPosition[];
+}
+
+export interface ModelPosition {
+  participantId: ID;
+  modelId: string;
+  position: string;
+  confidence: number;
+}
+
+export interface ModelContribution {
+  participantId: ID;
+  modelId: string;
+  uniqueInsights: string[];
+  consensusSupport: string[];
+}
+
+export interface DebateRound {
+  roundNumber: number;
+  startedAt: Date;
+  completedAt?: Date;
+  
+  // For this round
+  promptContext?: string;   // e.g., "Respond to the criticisms..."
+  responses: PanelResponse[];
+  
+  // Analysis
+  keyDisputes: string[];
+  emergingConsensus: string[];
+}
+
+export interface PanelTemplate {
+  id: ID;
+  name: string;
+  description: string;
+  
+  // Pre-configured settings
+  mode: PanelMode;
+  defaultParticipants: PanelParticipant[];
+  systemPromptTemplate?: string;
+  
+  // Metadata
+  category: string;
+  tags: string[];
+  usageCount: number;
+}
+
+// ============================================================================
 // API Types (for MCP Server)
 // ============================================================================
 

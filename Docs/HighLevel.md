@@ -32,6 +32,13 @@ This tool enables a **multi-agent orchestration paradigm** where:
 * **Cost comparison** - Compare model performance vs. cost for similar tasks.
 * **Smart fallbacks** - Retry with cheaper models first, escalate only when needed.
 
+## AI Debate & Expert Panels
+* **"Poll the Experts"** - Send the same question to multiple models and compare their responses side-by-side.
+* **Model variance detection** - See where models agree and disagree to understand uncertainty in AI responses.
+* **Structured debates** - Have models critique each other's answers for deeper analysis.
+* **Consensus building** - Aggregate multiple expert opinions into a synthesized recommendation.
+* **Cost-effective wisdom** - Include cheaper models in the panel to see if they match expensive ones.
+
 ## Workflow Integration
 * **Architecture → Spec → Implementation pipeline** - Structured handoffs between planning and coding.
 * **Approval gates** - Review and approve work at each stage before delegation continues.
