@@ -447,6 +447,126 @@ A "living" AI companion that runs on a tunable interval, proactively suggesting,
 
 ---
 
+## Phase 15: Tool System & Plugins ⭐ NEW
+
+### Tool Visibility & Control
+- [ ] Tool output streaming to UI
+- [ ] Tool execution status tracking
+- [ ] Exit code and diagnostics display
+- [ ] Tool performance metrics
+- [ ] Tool execution history
+
+### Plugin Architecture
+- [ ] WASM plugin system
+- [ ] Python script plugins
+- [ ] Native Rust plugin loading
+- [ ] Plugin manifest format
+- [ ] Permission system for plugins
+- [ ] Hot-reload for development
+
+### Token-Optimized Output
+- [ ] Smart truncation with preservation
+- [ ] Error extraction from output
+- [ ] Build result summarization
+- [ ] Directory listing optimization
+- [ ] "Show more" for full output
+
+---
+
+## Phase 16: Python Embedded ⭐ NEW
+
+### Python Runtime
+- [ ] Embed Python interpreter (PyO3)
+- [ ] Jupyter-like cell execution
+- [ ] Package management (pip, virtualenv)
+- [ ] Security sandboxing
+
+### Integration
+- [ ] Rust ↔ Python data exchange
+- [ ] AI can execute Python code
+- [ ] Python output in chat
+- [ ] Shared memory for large data
+
+---
+
+## Phase 17: Multi-Project Workspace ⭐ NEW
+
+### Project Management
+- [ ] Multiple open projects
+- [ ] Fast project switching
+- [ ] Project tabs/sidebar
+- [ ] Independent window option
+
+### Context Preservation
+- [ ] Per-project open files
+- [ ] Per-project AI todos
+- [ ] Per-project conversations
+- [ ] Project-specific agents
+
+### Global Resources
+- [ ] Shared prompt library
+- [ ] Global agents
+- [ ] Cross-project search
+
+---
+
+## Phase 18: Bug Tracking ⭐ NEW
+
+### Lightweight Issues
+- [ ] Quick capture (keybinding)
+  - [ ] Auto-capture errors from tools
+  - [ ] Link to conversation/code
+  - [ ] AI triage and suggestions
+- [ ] Minimal workflow (open → closed)
+- [ ] Duplicate detection
+
+---
+
+## Phase 19: Model Provider Support ⭐ NEW
+
+### Providers
+- [ ] OpenAI (GPT-4, GPT-4o, etc.)
+- [ ] Anthropic (Claude 3 family)
+- [ ] Google (Gemini)
+- [ ] Moonshot AI (Kimi)
+- [ ] Local models (Ollama)
+- [ ] xAI (Grok)
+
+### Authentication
+- [ ] API key storage (keychain)
+- [ ] OAuth flows
+- [ ] Multi-account per provider
+- [ ] Environment variable fallback
+
+### Features
+- [ ] Model discovery
+- [ ] Per-model token counting
+- [ ] Rate limit tracking
+- [ ] Cost per model
+
+---
+
+## Phase 20: Token Optimization ⭐ NEW
+
+### System-Wide Optimization
+- [ ] Token budget enforcement
+- [ ] Cost estimation before send
+- [ ] Context compression
+- [ ] Rolling conversation summarization
+- [ ] Lazy file loading
+
+### Tool Output
+- [ ] Smart truncation
+- [ ] Error extraction
+- [ ] Build summary
+
+### Code Context
+- [ ] Symbol-level references
+- [ ] Diff-based updates
+- [ ] Import tracking
+
+---
+
 ## Polish & Release
 
 ### Testing

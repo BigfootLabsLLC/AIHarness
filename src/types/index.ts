@@ -990,6 +990,209 @@ export interface PendingEdit {
 }
 
 // ============================================================================
+// Tool System Types ⭐ NEW
+// ============================================================================
+
+export type ToolExecutionStatus = 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
+
+export interface ToolExecution extends Timestamped {
+  id: ID;
+  toolName: ToolName;
+  
+  // Input
+  arguments: Record<string, unknown>;
+  workingDirectory?: string;
+  
+  // Execution
+  status: ToolExecutionStatus;
+  startedAt?: Date;
+  completedAt?: Date;
+  
+  // Output
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  
+  // Optimization
+  outputTruncated: boolean;
+  fullOutputPath?: string;  // If truncated, where's the full output?
+  tokenCount: number;
+  
+  // Metadata
+  costUSD?: number;         // If LLM was used to process output
+  durationMs?: number;
+  
+  // For display
+  summary?: string;         // AI-generated summary
+  errorExtract?: string;    // Extracted error message
+}
+
+export interface ToolPlugin {
+  id: ID;
+  name: string;
+  version: string;
+  
+  // Type
+  type: 'wasm' | 'python' | 'native';
+  entryPoint: string;       // File path or wasm module
+  
+  // Schema
+  manifest: ToolPluginManifest;
+  
+  // State
+  enabled: boolean;
+  lastLoadedAt?: Date;
+  
+  // Errors
+  loadError?: string;
+}
+
+export interface ToolPluginManifest {
+  name: string;
+  description: string;
+  version: string;
+  author?: string;
+  
+  // Permissions
+  permissions: ToolPermission[];
+  
+  // Tools provided
+  tools: ToolDefinition[];
+}
+
+export type ToolPermission = 
+  | 'filesystem:read'
+  | 'filesystem:write'
+  | 'network:fetch'
+  | 'shell:execute'
+  | 'python:execute'
+  | 'env:read';
+
+// ============================================================================
+// Python Integration Types ⭐ NEW
+// ============================================================================
+
+export interface PythonExecution extends Timestamped {
+  id: ID;
+  code: string;
+  
+  // Execution
+  status: 'pending' | 'running' | 'completed' | 'error';
+  startedAt?: Date;
+  completedAt?: Date;
+  
+  // Output
+  stdout?: string;
+  stderr?: string;
+  result?: unknown;         // Serialized Python result
+  resultType?: string;      // Python type name
+  
+  // Environment
+  virtualenvPath?: string;
+  packagesInstalled: string[];
+  
+  // Resources
+  memoryUsedMb?: number;
+  durationMs?: number;
+}
+
+export interface PythonEnvironment {
+  id: ID;
+  projectId: ID;
+  
+  // Config
+  pythonVersion: string;
+  requirementsPath?: string;
+  
+  // State
+  packages: PythonPackage[];
+  lastUsedAt?: Date;
+}
+
+export interface PythonPackage {
+  name: string;
+  version: string;
+  isDevDependency: boolean;
+}
+
+// ============================================================================
+// Multi-Project Types ⭐ NEW
+// ============================================================================
+
+export interface Workspace {
+  id: ID;
+  name: string;
+  
+  // Projects
+  projectIds: ID[];
+  activeProjectId: ID;
+  
+  // Layout
+  layout: WorkspaceLayout;
+  
+  // Global
+  globalPromptLibraryId: ID;
+  globalAgentIds: ID[];
+}
+
+export interface WorkspaceLayout {
+  // Which projects visible
+  visibleProjectIds: ID[];
+  
+  // Split configuration
+  splitDirection: 'horizontal' | 'vertical';
+  splitRatios: number[];    // e.g., [0.5, 0.5] for 50/50
+  
+  // Per-project state
+  projectLayouts: Record<ID, ProjectLayoutState>;
+}
+
+export interface ProjectLayoutState {
+  openFileIds: ID[];
+  activeFileId?: ID;
+  sidebarOpen: boolean;
+  sidebarWidth: number;
+}
+
+// ============================================================================
+// Bug Tracking Types ⭐ NEW
+// ============================================================================
+
+export type BugStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type BugPriority = 'critical' | 'high' | 'medium' | 'low';
+export type BugSource = 'manual' | 'tool_error' | 'ai_detected' | 'crash';
+
+export interface Bug extends Timestamped {
+  id: ID;
+  projectId: ID;
+  
+  // Basic info
+  title: string;
+  description?: string;
+  status: BugStatus;
+  priority: BugPriority;
+  source: BugSource;
+  
+  // Links
+  conversationId?: ID;
+  messageId?: ID;
+  filePath?: string;
+  lineNumber?: number;
+  commitHash?: string;
+  
+  // AI suggestions
+  suggestedFix?: string;
+  relatedBugIds: ID[];
+  
+  // Assignment
+  assignedTo?: ID;          // Agent or user
+  
+  // Resolution
+  resolution?: string;
+  resolvedAt?: Date;
+}
+
+// ============================================================================
 // API Types (for MCP Server)
 // ============================================================================
 

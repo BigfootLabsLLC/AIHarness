@@ -566,6 +566,134 @@ interface PanelParticipant {
 
 ---
 
+## Phase 11: Tool System & Plugins (Weeks 29-31)
+
+### 11.1 Plugin Architecture
+**Goal:** Simple, extensible tool system (WASM, Python, Native).
+
+**Key Deliverables:**
+- [ ] WASM plugin runtime
+- [ ] Python plugin support (embedded)
+- [ ] Native Rust plugin loading
+- [ ] Plugin manifest and permissions
+- [ ] Hot-reload for development
+
+### 11.2 Token-Optimized Output
+**Goal:** Smart truncation and summarization for tool output.
+
+**Key Deliverables:**
+- [ ] Output truncation with preservation
+- [ ] Error extraction from stack traces
+- [ ] Build output summarization
+- [ ] Directory listing optimization
+- [ ] "Show full output" option
+
+---
+
+## Phase 12: Python Embedded (Weeks 32-34)
+
+### 12.1 Python Runtime
+**Goal:** Embedded Python for AI to use ML/data tools.
+
+**Key Deliverables:**
+- [ ] PyO3 integration
+- [ ] Virtualenv per project
+- [ ] Package management
+- [ ] Security sandboxing
+
+### 12.2 Rust-Python Bridge
+**Goal:** Seamless data exchange.
+
+**Key Deliverables:**
+- [ ] Serialize Rust structs to Python
+- [ ] Return Python results to Rust
+- [ ] Shared memory for large data
+- [ ] Jupyter-like cell execution
+
+---
+
+## Phase 13: Multi-Project Workspace (Weeks 35-36)
+
+### 13.1 Project Management
+**Goal:** Work on multiple projects simultaneously.
+
+**Key Deliverables:**
+- [ ] Multiple open projects
+- [ ] Fast switching
+- [ ] Split views
+- [ ] Independent windows
+
+### 13.2 Context Preservation
+**Goal:** Per-project state isolation.
+
+**Key Deliverables:**
+- [ ] Per-project files/tabs
+- [ ] Per-project AI todos
+- [ ] Per-project conversations
+- [ ] Global/shared resources
+
+---
+
+## Phase 14: Bug Tracking (Weeks 37-38)
+
+### 14.1 Lightweight Issues
+**Goal:** AI-friendly bug tracking without bloat.
+
+**Key Deliverables:**
+- [ ] Quick issue capture
+- [ ] Auto-capture from tool errors
+- [ ] AI triage and suggestions
+- [ ] Duplicate detection
+
+---
+
+## Phase 15: Model Provider Support (Weeks 39-40)
+
+### 15.1 Provider Integrations
+**Goal:** Support all major providers.
+
+**Key Deliverables:**
+- [ ] OpenAI
+- [ ] Anthropic
+- [ ] Google (Gemini)
+- [ ] Moonshot AI (Kimi)
+- [ ] Local models (Ollama)
+- [ ] xAI (Grok)
+
+### 15.2 Authentication
+**Goal:** Secure, flexible auth.
+
+**Key Deliverables:**
+- [ ] API key management
+- [ ] OAuth flows
+- [ ] Multi-account support
+- [ ] Environment variable fallback
+
+---
+
+## Phase 16: Token Optimization (Weeks 41-42)
+
+### 16.1 System-Wide Optimization
+**Goal:** Every token counts.
+
+**Key Deliverables:**
+- [ ] Token budget enforcement
+- [ ] Pre-send cost estimation
+- [ ] Context compression
+- [ ] Rolling summarization
+- [ ] Lazy file loading
+
+### 16.2 Output Optimization
+**Goal:** Smart truncation everywhere.
+
+**Key Deliverables:**
+- [ ] Tool output summarization
+- [ ] Error extraction
+- [ ] Diff-based updates
+- [ ] Symbol-level references
+
+---
+
 ## Technical Stack Recommendations
 
 ### Frontend

@@ -234,7 +234,165 @@
   - Decision transparency (log every suggestion reason)
   - User feedback on suggestions (thumbs up/down for learning)
 
-### 2.15 AI Interaction Modes
+### 2.15 Tool System ⭐ NEW
+- **Tool Visibility & Control**
+  - Real-time tool output streaming
+  - Tool execution status (pending, running, completed, error)
+  - Exit codes and diagnostics display
+  - Tool performance metrics (duration, cost)
+  - Tool execution history and replay
+  
+- **Plugin Architecture** (Simple)
+  - WASM-based plugins (sandboxed, fast)
+  - Python script plugins (embedded runtime)
+  - Native Rust plugins (dynamic loading)
+  - Plugin manifest (name, version, permissions, schema)
+  - Hot-reload for development
+  
+- **Built-in Tools**
+  - Shell execution (bash, zsh, PowerShell)
+  - File operations (read, write, list, search)
+  - Git tools (status, diff, log, commit, branch)
+  - Web tools (fetch, search)
+  - Code tools (grep, find references, lint)
+  - Build tools (compile, test, package managers)
+  
+- **Token-Optimized Output** ⭐ KEY
+  - Smart truncation with "... (truncated, full output in panel)"
+  - Error extraction from stack traces
+  - Build output summarization
+  - Directory tree vs. flat list selection
+  - Line number references without full content
+  - Semantic compression (keep meaning, reduce tokens)
+
+### 2.16 Python Embedded ⭐ NEW
+- **Python Runtime**
+  - Embedded Python interpreter (PyO3 or rust-cpython)
+  - AI can execute arbitrary Python code
+  - Access to Python ML ecosystem (numpy, pandas, etc.)
+  - Jupyter-like cell execution
+  
+- **Data Exchange**
+  - Serialize Rust structs to Python dicts/objects
+  - Return Python results to Rust
+  - Shared memory for large data (zero-copy)
+  - JSON/Arrow as interchange format
+  
+- **Package Management**
+  - Automatic virtualenv per project
+  - requirements.txt / pyproject.toml support
+  - Automatic dependency installation
+  - Isolated environments
+  
+- **Security**
+  - Sandboxed execution (resource limits)
+  - No network access by default
+  - File system access controls
+  - Timeout enforcement
+
+### 2.17 Multi-Project Workspace ⭐ NEW
+- **Project Management**
+  - Multiple open projects simultaneously
+  - Project tabs or sidebar switcher
+  - Fast context switching (< 100ms)
+  - Per-project settings and configuration
+  
+- **Split Views**
+  - Side-by-side project comparison
+  - Drag files between projects
+  - Shared clipboard across projects
+  - Independent window option (pop out project)
+  
+- **Context Preservation**
+  - Per-project open files/tabs
+  - Per-project recent files
+  - Per-project AI todo lists
+  - Per-project conversation history
+  - Project-specific agent assignments
+  
+- **Global Resources**
+  - Shared prompt library across projects
+  - Global agents (available everywhere)
+  - Cross-project search
+  - Shared cost budget tracking
+
+### 2.18 Bug Tracking ⭐ NEW
+- **Lightweight Issues**
+  - Minimal fields: title, description, status, priority
+  - No bloated workflow (open → in progress → closed)
+  - Quick capture from anywhere (keybinding)
+  
+- **AI Integration**
+  - Auto-capture errors from tool output
+  - AI suggests fixes based on error context
+  - Link to conversation where bug was found
+  - Link to code location
+  - Link to commit that introduced/fixed
+  
+- **Triage**
+  - AI auto-prioritization based on severity
+  - Duplicate detection
+  - Related issue suggestions
+  - "Similar to issue #42"
+  
+- **Minimal Overhead**
+  - Create issue in < 5 seconds
+  - No mandatory fields
+  - No meetings, no process
+  - Just track and fix
+
+### 2.19 Model Provider Support ⭐ NEW
+- **Supported Providers** (Initial)
+  - OpenAI (GPT-4, GPT-4o, GPT-4o-mini, etc.)
+  - Anthropic (Claude 3 Opus, Sonnet, Haiku)
+  - Google (Gemini Pro, Flash)
+  - Moonshot AI (Kimi)
+  - Local models (Ollama, LM Studio)
+  - xAI (Grok) - optional
+  - Mistral AI - optional
+  - Cohere - optional
+  
+- **Authentication Methods**
+  - API keys (stored in system keychain)
+  - OAuth flows where supported
+  - Environment variable fallback
+  - Multiple accounts per provider
+  
+- **Provider Features**
+  - Model discovery (list available models)
+  - Token counting per provider
+  - Rate limit tracking
+  - Cost per model
+  - Streaming support
+  - Vision/multimodal where available
+
+### 2.20 Token Optimization ⭐ NEW
+*Comprehensive token efficiency throughout the system.*
+
+- **Tool Output**
+  - Smart truncation with context preservation
+  - Error-focused extraction
+  - Build result summarization
+  - Directory listing optimization
+  
+- **Code Context**
+  - Symbol-level references vs. full files
+  - Diff-based updates (send changes, not whole file)
+  - Lazy loading of file contents
+  - Import/dependency tracking
+  
+- **Conversation**
+  - Rolling summarization for long contexts
+  - Message pruning (keep important, drop old)
+  - Context compression techniques
+  
+- **System-Wide**
+  - Token budget enforcement
+  - Cost estimation before sending
+  - "This will use ~2K tokens" warnings
+  - Optimization suggestions
+
+### 2.21 AI Interaction Modes
 - **Harness Mode**: Built-in collaborative AI can edit prompts, generate todos, and modify shared docs within the UI, using tooling like guided suggestions and contextual helpers.
 - **MCP/Tool Server Mode**: Expose the app as a callable MCP server or Python tool interface so external AIs can query documents, log todos, or request architecture guidance with authentication and audit trails.
 

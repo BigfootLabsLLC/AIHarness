@@ -72,3 +72,37 @@ This tool enables a **multi-agent orchestration paradigm** where:
 * **Non-intrusive** - Sidebar notifications, never modal interruptions.
 * **Smart triggering** - Detects idle vs. deep work, only speaks when relevant.
 * **Personality** - Configurable voice: professional, casual, playful, terse.
+
+## Tool System ⭐ NEW
+* **Tool visibility** - See output, diagnostics, and status of every tool the AI uses.
+* **Plugin architecture** - Simple system for adding new tools (WASM, Python, or native).
+* **Built-in tools** - Shell, file system, Git, web search, code search, build tools.
+* **Tool output optimization** - Smart truncation, error extraction, low-token summaries.
+
+## Python Embedded ⭐ NEW
+* **Embedded Python runtime** - Access Python ecosystem without leaving the app.
+* **AI can run Python** - Execute Python scripts, use ML libraries, data analysis.
+* **Seamless data exchange** - Pass data between Rust backend and Python runtime.
+* **Package management** - Handle Python dependencies automatically.
+
+## Multi-Project Workspace ⭐ NEW
+* **Multiple projects** - Work on 2-3 projects simultaneously.
+* **Project switching** - Fast context switching without losing state.
+* **Split views** - Side-by-side project views.
+* **Shared resources** - Global prompt library, shared agents across projects.
+* **Mental context preservation** - Project-specific todo lists, recent files, open tabs.
+
+## Bug Tracking ⭐ NEW
+* **Lightweight bug tracker** - AI-friendly issue tracking.
+* **Auto-capture** - Errors, crashes, AI-identified issues.
+* **Context linking** - Link bugs to code, conversations, commits.
+* **AI triage** - Auto-prioritize, suggest fixes, find related issues.
+* **Minimal overhead** - No bloated workflow, just track and fix.
+
+## Token Optimization ⭐ NEW
+* **Smart output truncation** - Get the gist without overfilling context.
+* **Error extraction** - Pull just the relevant error from stack traces.
+* **Build output summarization** - "Build failed: 3 errors in src/parser.rs" vs full log.
+* **Directory listing optimization** - Tree view vs flat list based on context.
+* **Lazy loading** - Load file contents only when needed.
+* **Diff optimization** - Show only changed sections, not entire files.
