@@ -4,7 +4,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_PATH="$SCRIPT_DIR/src-tauri/target/release/bundle/macos/AIHarness.app"
+APP_PATH="$SCRIPT_DIR/build/AIHarness.app"
+COLLECT_SCRIPT="$SCRIPT_DIR/scripts/collect-build.sh"
 
 echo "=== AIHarness Launcher ==="
 echo ""
@@ -18,6 +19,7 @@ if [ ! -d "$APP_PATH" ]; then
     echo ""
     cd "$SCRIPT_DIR"
     npm run tauri build
+    "$COLLECT_SCRIPT"
     echo ""
     echo "Build complete!"
 else

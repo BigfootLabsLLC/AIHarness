@@ -1,36 +1,532 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --ink-900: #111312;
+    --ink-700: #2a2f2c;
+    --ink-500: #4f5b56;
+    --bone-50: #f6f5f2;
+    --bone-100: #efede7;
+    --bone-200: #e5e1d6;
+    --accent-600: #007a6f;
+    --accent-500: #0b8d80;
+    --accent-300: #5ac1b4;
+    --warning-400: #f4b266;
+    --border-soft: rgba(17, 19, 18, 0.12);
+    --shadow-soft: 0 20px 60px rgba(17, 19, 18, 0.08);
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    @apply antialiased text-[15px];
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    color: var(--ink-900);
+    background: #f4f4f4;
   }
 }
 
 @layer components {
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+  .app-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
-  
-  .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700;
+
+  .app-topbar {
+    @apply flex items-center justify-between px-4 py-2;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-soft);
   }
-  
-  .btn-secondary {
-    @apply btn bg-gray-200 text-gray-800 hover:bg-gray-300;
+
+  .app-topbar__left {
+    @apply flex items-center gap-6;
   }
-  
-  .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700;
+
+  .brand-lockup {
+    @apply flex items-center gap-3;
   }
-  
-  .panel {
-    @apply bg-white rounded-lg shadow-md p-4;
+
+  .brand-mark {
+    @apply flex items-center justify-center text-lg font-semibold;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: #0b8d80;
+    color: #ffffff;
   }
-  
-  .panel-header {
-    @apply text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200;
+
+  .brand-title {
+    @apply text-lg font-semibold;
+  }
+
+  .brand-subtitle {
+    @apply text-xs uppercase tracking-[0.2em];
+    color: var(--ink-500);
+  }
+
+  .status-chip {
+    @apply flex items-center gap-2 px-2 py-1 text-[11px] font-semibold uppercase;
+    background: #f0f0f0;
+    color: var(--ink-700);
+    border: 1px solid var(--border-soft);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--ink-500);
+  }
+
+  .status-running {
+    background: var(--accent-500);
+  }
+
+  .status-starting {
+    background: var(--warning-400);
+  }
+
+  .status-error {
+    background: #c94a4a;
+  }
+
+  .status-port {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, SFMono-Regular, monospace;
+    font-size: 11px;
+  }
+
+  .app-topbar__actions {
+    @apply flex items-center gap-3;
+  }
+
+  .ghost-pill {
+    @apply text-sm font-semibold px-4 py-2 rounded-full transition;
+    background: transparent;
+    border: 1px solid var(--border-soft);
+    color: var(--ink-700);
+  }
+
+  .ghost-pill:hover {
+    border-color: var(--ink-500);
+  }
+
+  .ghost-pill.full {
+    width: 100%;
+  }
+
+  .accent-pill {
+    @apply text-sm font-semibold px-4 py-2 rounded-full transition;
+    color: white;
+    background: linear-gradient(135deg, #0b8d80, #0a5f56);
+    box-shadow: 0 12px 24px rgba(11, 141, 128, 0.2);
+  }
+
+  .app-body {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .project-rail {
+    @apply flex flex-col gap-3;
+    align-items: flex-start;
+  }
+
+  .rail-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+    color: var(--ink-500);
+  }
+
+  .project-tab {
+    @apply text-[11px] font-semibold transition;
+    width: 72px;
+    height: 90px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    border-radius: 0 4px 4px 0;
+    padding: 6px 4px;
+  }
+
+  .project-tab.active {
+    background: #0b8d80;
+    color: #f4fefb;
+    border-color: transparent;
+  }
+
+  .project-tab.add {
+    font-size: 18px;
+    height: 48px;
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) 260px;
+    gap: 6px;
+  }
+
+  .workspace-left,
+  .workspace-right {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .workspace-center {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .panel-shell {
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 6px;
+  }
+
+  .panel-shell__header {
+    @apply flex items-start justify-between gap-4;
+    margin-bottom: 4px;
+  }
+
+  .panel-title {
+    @apply text-sm font-semibold uppercase tracking-[0.2em];
+    color: var(--ink-500);
+  }
+
+  .panel-tabs {
+    @apply flex gap-1 mt-2;
+  }
+
+  .panel-tab {
+    @apply text-[10px] px-2 py-0.5 font-semibold transition;
+    border: 1px solid var(--border-soft);
+    color: var(--ink-700);
+  }
+
+  .panel-tab.active {
+    background: var(--ink-900);
+    color: #f4fefb;
+    border-color: transparent;
+  }
+
+  .panel-action {
+    @apply text-xl leading-none;
+    color: var(--ink-500);
+  }
+
+  .panel-shell__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .list-row,
+  .todo-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: var(--bone-50);
+    border: 1px solid transparent;
+  }
+
+  .compact-row {
+    padding: 3px 4px;
+    border-radius: 4px;
+  }
+
+  .list-row:hover,
+  .todo-row:hover {
+    border-color: var(--border-soft);
+  }
+
+  .row-title {
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .row-subtitle {
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+
+  .row-meta {
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    color: var(--ink-500);
+  }
+
+  .tree-row {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--bone-50);
+  }
+
+  .tree-row.muted {
+    color: var(--ink-500);
+  }
+
+  .todo-row {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .todo-row input {
+    width: 16px;
+    height: 16px;
+  }
+
+  .empty-state {
+    font-size: 12px;
+    color: var(--ink-500);
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px dashed var(--border-soft);
+  }
+
+  .main-canvas {
+    flex: 1;
+    border-radius: 4px;
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    min-height: 480px;
+  }
+
+  .canvas-empty {
+    text-align: center;
+    max-width: 420px;
+  }
+
+  .canvas-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .canvas-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .canvas-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .canvas-tab {
+    @apply text-[10px] px-2 py-1 font-semibold transition;
+    background: var(--bone-100);
+    color: var(--ink-700);
+  }
+
+  .canvas-tab.active {
+    background: var(--ink-900);
+    color: #f4fefb;
+  }
+
+  .agent-pill {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    background: var(--bone-100);
+    color: var(--ink-500);
+  }
+
+  .agent-pill.active {
+    background: rgba(11, 141, 128, 0.15);
+    color: var(--accent-600);
+  }
+
+  .agent-pill.planning {
+    background: rgba(244, 178, 102, 0.2);
+    color: #a55d12;
+  }
+
+  @media (max-width: 1200px) {
+    .workspace {
+      grid-template-columns: 210px minmax(0, 1fr) 230px;
+    }
+  }
+
+  @media (max-width: 980px) {
+    .app-body {
+      grid-template-columns: 1fr;
+    }
+
+    .project-rail {
+      flex-direction: row;
+      justify-content: flex-start;
+      padding-bottom: 8px;
+    }
+
+    .rail-label {
+      writing-mode: horizontal-tb;
+      transform: none;
+    }
+
+    .workspace {
+      grid-template-columns: 1fr;
+    }
+  }
+  .detail-card {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    background: var(--bone-50);
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  .detail-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .detail-subtitle {
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+
+  .detail-meta {
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    color: var(--ink-500);
+  }
+
+  .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .detail-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-500);
+  }
+
+  .detail-code {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 8px;
+    white-space: pre-wrap;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+  }
+
+  .modal {
+    width: 360px;
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .modal-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-500);
+  }
+
+  .field-input {
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    background: #ffffff;
+    color: var(--ink-900);
+  }
+
+  .field-error {
+    font-size: 12px;
+    color: #a22727;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .button {
+    border: 1px solid var(--border-soft);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #ffffff;
+  }
+
+  .button.primary {
+    background: #0b8d80;
+    color: #ffffff;
+    border-color: transparent;
   }
 }

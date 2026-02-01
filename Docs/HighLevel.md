@@ -12,7 +12,7 @@ This tool enables a **multi-agent orchestration paradigm** where:
 
 ## Context & Prompt Management
 * Organize all the context you might want to share with the AI. Make it easy to edit markdown files, copy over blocks of text, etc.
-* Provide a local MCP/tool interface for local AIs to interact with to pull data from so you can tell the AI to pull its own prompt.
+* Provide a built-in HTTP tool interface for local AIs to pull data and prompts directly from the app.
 * Maintain a prompt library
 * AI Code reviews -- provide feedback on code changes being made or requested. 
 * Code architecture organization

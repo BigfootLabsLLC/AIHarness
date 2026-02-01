@@ -1,7 +1,7 @@
 {
   "productName": "AIHarness",
   "version": "0.1.0",
-  "identifier": "com.aiharness.app",
+  "identifier": "com.aiharness",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",

@@ -2,52 +2,6 @@
 
 use std::fmt;
 
-/// Errors that can occur in the MCP protocol
-#[derive(Debug, Clone, PartialEq)]
-pub enum McpError {
-    /// Invalid JSON in request
-    InvalidJson(String),
-    /// Unknown method called
-    UnknownMethod(String),
-    /// Missing required parameter
-    MissingParameter(String),
-    /// Invalid parameter value
-    InvalidParameter { name: String, value: String },
-    /// Tool execution failed
-    ToolExecutionFailed(String),
-    /// Tool not found
-    ToolNotFound(String),
-    /// Resource not found
-    ResourceNotFound(String),
-    /// Internal server error
-    InternalError(String),
-    /// Not initialized
-    NotInitialized,
-    /// Already initialized
-    AlreadyInitialized,
-}
-
-impl fmt::Display for McpError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidJson(e) => write!(f, "Invalid JSON: {}", e),
-            Self::UnknownMethod(m) => write!(f, "Unknown method: {}", m),
-            Self::MissingParameter(p) => write!(f, "Missing parameter: {}", p),
-            Self::InvalidParameter { name, value } => {
-                write!(f, "Invalid parameter '{}' with value '{}'", name, value)
-            }
-            Self::ToolExecutionFailed(e) => write!(f, "Tool execution failed: {}", e),
-            Self::ToolNotFound(t) => write!(f, "Tool not found: {}", t),
-            Self::ResourceNotFound(r) => write!(f, "Resource not found: {}", r),
-            Self::InternalError(e) => write!(f, "Internal error: {}", e),
-            Self::NotInitialized => write!(f, "Server not initialized"),
-            Self::AlreadyInitialized => write!(f, "Server already initialized"),
-        }
-    }
-}
-
-impl std::error::Error for McpError {}
-
 /// Errors that can occur during tool execution
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToolError {
@@ -139,41 +93,6 @@ impl From<rusqlite::Error> for ContextError {
 mod tests {
     use super::*;
 
-    // McpError tests
-    #[test]
-    fn mcp_error_display_invalid_json() {
-        let err = McpError::InvalidJson("unexpected token".to_string());
-        assert_eq!(err.to_string(), "Invalid JSON: unexpected token");
-    }
-
-    #[test]
-    fn mcp_error_display_unknown_method() {
-        let err = McpError::UnknownMethod("foo".to_string());
-        assert_eq!(err.to_string(), "Unknown method: foo");
-    }
-
-    #[test]
-    fn mcp_error_display_missing_parameter() {
-        let err = McpError::MissingParameter("path".to_string());
-        assert_eq!(err.to_string(), "Missing parameter: path");
-    }
-
-    #[test]
-    fn mcp_error_display_invalid_parameter() {
-        let err = McpError::InvalidParameter {
-            name: "count".to_string(),
-            value: "abc".to_string(),
-        };
-        assert!(err.to_string().contains("count"));
-        assert!(err.to_string().contains("abc"));
-    }
-
-    #[test]
-    fn mcp_error_display_tool_execution_failed() {
-        let err = McpError::ToolExecutionFailed("panic".to_string());
-        assert_eq!(err.to_string(), "Tool execution failed: panic");
-    }
-
     // ToolError tests
     #[test]
     fn tool_error_display_file_not_found() {
@@ -232,34 +151,9 @@ mod tests {
         assert!(matches!(ctx_err, ContextError::Database(_)));
     }
 
-    // Error trait tests
-    #[test]
-    fn mcp_error_implements_error() {
-        let err: Box<dyn std::error::Error> = Box::new(McpError::NotInitialized);
-        assert!(err.to_string().contains("not initialized"));
-    }
-
     #[test]
     fn tool_error_implements_error() {
         let err: Box<dyn std::error::Error> = Box::new(ToolError::InvalidArguments("bad".to_string()));
         assert!(err.to_string().contains("bad"));
-    }
-
-    // Clone tests
-    #[test]
-    fn mcp_error_clones_correctly() {
-        let err = McpError::InternalError("test".to_string());
-        let cloned = err.clone();
-        assert_eq!(err, cloned);
-    }
-
-    // PartialEq tests
-    #[test]
-    fn mcp_error_equality() {
-        let err1 = McpError::NotInitialized;
-        let err2 = McpError::NotInitialized;
-        let err3 = McpError::AlreadyInitialized;
-        assert_eq!(err1, err2);
-        assert_ne!(err1, err3);
     }
 }

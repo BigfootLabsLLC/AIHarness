@@ -3,7 +3,7 @@
 ## 1. Context
 - **Purpose:** Build an app for organizing prompts, context, and collaborating with local AI tools per *HighLevel.md*.
 - **Scope:** No coding today—focus on planning the feature set, implementation steps, and next-actions documentation.
-- **Constraints:** Local MCP/tools integration, prompt library, AI-assisted code reviews, architecture planning features.
+- **Constraints:** Local HTTP tool integration, prompt library, AI-assisted code reviews, architecture planning features.
 - **Key Paradigm:** Multi-agent orchestration with cost-aware routing - premium models for architecture/guidance, cheap models for implementation.
 
 ## 2. Detailed Feature List
@@ -24,8 +24,8 @@
 - Optional right rail for AI interactions, todo tracking, and architecture references.
 - Shared UI modules (document tree, prompt editor, AI rails) to keep the experience consistent and extensible.
 
-### 2.4 Local MCP/Tool Interface
-- Interface to register local tools (MCPs) and expose structured documents via APIs/IPC.
+### 2.4 Local HTTP Tool Interface
+- Interface to register local tools and expose structured documents via HTTP/IPC.
 - Panel for assigning documents/blocks to tools with metadata (source, format, freshness).
 - Access controls so AI assistants request data by name/ID rather than copying manually.
 - Support for major LLM providers (Codex, Grok, Claude, Gemini) via their native authentication/credential flows.
@@ -443,11 +443,11 @@
 
 ### 2.22 AI Interaction Modes
 - **Harness Mode**: Built-in collaborative AI can edit prompts, generate todos, and modify shared docs within the UI, using tooling like guided suggestions and contextual helpers.
-- **MCP/Tool Server Mode**: Expose the app as a callable MCP server or Python tool interface so external AIs can query documents, log todos, or request architecture guidance with authentication and audit trails.
+- **HTTP Tool Server Mode**: Expose the app as a callable HTTP tool server so external AIs can query documents, log todos, or request architecture guidance with authentication and audit trails.
 
 ### 2.12 Commercial Product Readiness
 - Onboarding flow, usage analytics, and feature differentiation for paying customers.
-- Security controls around local storage, exports, and shared MCP endpoints.
+- Security controls around local storage, exports, and shared HTTP endpoints.
 - Shared libraries (UI/data modules) to avoid reinventing components and support future surfaces.
 
 ### 2.12 Sandboxed Content Access
@@ -462,7 +462,7 @@
 - **Data Model**
   - Documents: markdown files with metadata (tags, source, used_by).
   - Prompts: templated text with placeholders for context (context_refs list).
-  - Tools: registered MCP endpoints with capabilities list.
+  - Tools: registered HTTP endpoints with capabilities list.
   - Reviews: user notes, AI feedback, status, linked diffs.
   - **NEW - Agents**: agent sessions with model, role, status, context window, cost spent.
   - **NEW - Tasks**: delegated tasks with owner, reviewer, dependencies, cost budget.
@@ -490,7 +490,7 @@
    - Persistent workspace layout configuration (panels, sections).
 
 #### Phase 2: AI Integration
-3. **MCP Tool Connectors**
+3. **HTTP Tool Connectors**
    - Abstraction for registering tools and exposing context via local APIs.
    - UI for linking documents/blocks to tools (drag/drop).
 
@@ -540,8 +540,8 @@
     - Action logging and permission controls
     - Guided helpers for common tasks
 
-12. **MCP/Tool Server Mode**
-    - Expose Python/REST interface for external AIs
+12. **HTTP Tool Server Mode**
+    - Expose REST interface for external AIs
     - Telemetry and security hooks
     - Authentication adapters for all supported providers
 
@@ -574,7 +574,7 @@
 - [ ] Define success metrics (reduced prep time, review quality).
 - [ ] Gather example prompts and context flows from current workflow.
 - [ ] Decide on storage backend (local files, db, both).
-- [ ] Outline MCP/local tool API contract (REST, socket, etc.).
+- [ ] Outline HTTP tool API contract (REST, socket, etc.).
 - [ ] Clarify commercialization approach: pricing tiers, onboarding, analytics surface.
 - [ ] Determine authentication/credential requirements for each supported model/provider (Codex, Grok, Claude, Gemini).
 - [ ] Define sandbox permission model for accessing arbitrary directories and remote/local content sources.
@@ -603,7 +603,7 @@
 
 ### Implementation Prep
 - [ ] Inventory existing markdown/context that users want preserved.
-- [ ] Research local MCP frameworks/tooling for integration.
+- [ ] Research local HTTP tool frameworks/tooling for integration.
 - [ ] Investigate Ollama API for startup/shutdown control plus sandboxed local model hosting.
 - [ ] Catalog diffs or repos targeted for AI code review flows.
 - [ ] Plan prompt template DSL or placeholders (e.g., {{context:project}}).

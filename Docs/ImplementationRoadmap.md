@@ -371,7 +371,7 @@ interface PanelParticipant {
 
 ## Phase 5: Polish & Integration (Weeks 12-13)
 
-### 5.1 MCP/Tool Server Mode
+### 5.1 HTTP Tool Server Mode
 **Goal:** Expose AIHarness as a callable tool for external AIs.
 
 **Capabilities:**
@@ -751,7 +751,7 @@ interface PanelParticipant {
 - **Editor:** Monaco Editor (VS Code's editor)
 - **Charts:** Recharts for cost analytics
 
-### Backend (if needed for MCP server)
+### Backend (if needed for HTTP tool server)
 - **Runtime:** Node.js with Express or Fastify
 - **Database:** SQLite (local) or PostgreSQL (team)
 - **ORM:** Prisma

@@ -22,7 +22,7 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
 };
 
 function ServerStatus() {
-  const { status, error, startServer, stopServer, initialize } = useServerStore();
+  const { status, port, error, startServer, stopServer, initialize } = useServerStore();
 
   // Initialize on mount
   useEffect(() => {
@@ -86,8 +86,8 @@ function ServerStatus() {
               <div className="text-xs text-gray-500 uppercase tracking-wide">Status</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900">stdio</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Transport</div>
+              <div className="text-2xl font-bold text-gray-900">HTTP</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Port {port}</div>
             </div>
           </div>
         </div>
@@ -96,9 +96,9 @@ function ServerStatus() {
       {/* Instructions */}
       <div className="mt-4 text-xs text-gray-500">
         {status === 'running' ? (
-          <p>MCP Server is running. Configure Claude Desktop to use it.</p>
+          <p>HTTP server running on port {port}. AI tools can connect via http://127.0.0.1:{port}</p>
         ) : (
-          <p>Start the server to enable MCP connections.</p>
+          <p>Start the server to enable HTTP API for AI tools.</p>
         )}
       </div>
     </div>

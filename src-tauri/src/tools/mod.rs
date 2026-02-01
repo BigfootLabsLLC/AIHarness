@@ -55,7 +55,7 @@ impl ToolResult {
     }
 }
 
-/// Definition of a tool for the MCP protocol
+/// Definition of a tool for the HTTP tool protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
     /// The tool name
