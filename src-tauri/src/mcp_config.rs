@@ -171,15 +171,68 @@ fn detect_aiharness_binary() -> Result<PathBuf, ContextError> {
     ))
 }
 
+/// Find the Claude CLI binary
+/// 
+/// Checks PATH first, then common installation locations
+fn find_claude_binary() -> Result<PathBuf, ContextError> {
+    // First, check if 'claude' is in PATH
+    match which::which("claude") {
+        Ok(path) => return Ok(path),
+        Err(_) => {
+            // Check common installation locations
+            let home = dirs::home_dir().ok_or_else(|| {
+                ContextError::Config("Could not determine home directory".to_string())
+            })?;
+            
+            #[cfg(target_os = "macos")]
+            let common_paths = [
+                home.join(".local").join("bin").join("claude"),
+                home.join("bin").join("claude"),
+                PathBuf::from("/usr/local/bin/claude"),
+                PathBuf::from("/opt/homebrew/bin/claude"),
+            ];
+            
+            #[cfg(target_os = "linux")]
+            let common_paths = [
+                home.join(".local").join("bin").join("claude"),
+                home.join("bin").join("claude"),
+                PathBuf::from("/usr/local/bin/claude"),
+                PathBuf::from("/usr/bin/claude"),
+            ];
+            
+            #[cfg(target_os = "windows")]
+            let common_paths = [
+                home.join("AppData").join("Local").join("Programs").join("claude").join("claude.exe"),
+                home.join("bin").join("claude.exe"),
+            ];
+            
+            for path in &common_paths {
+                if path.exists() {
+                    return Ok(path.clone());
+                }
+            }
+            
+            Err(ContextError::Config(
+                "Claude Code not found. Please install Claude Code first:\n\
+                 npm install -g @anthropic-ai/claude-code\n\
+                 Or download from: https://claude.ai/download".to_string()
+            ))
+        }
+    }
+}
+
 /// Configure Claude Code using CLI command
 /// 
 /// Command: claude mcp add --transport stdio <name> -- <binary> --mcp-stdio-proxy --project <project_id>
 async fn configure_claude(project_id: &str, binary_path: &PathBuf) -> Result<McpSetupResult, ContextError> {
     let server_name = format!("aiharness-{}", project_id);
     let binary_str = binary_path.to_string_lossy();
+    
+    // Find the Claude binary
+    let claude_path = find_claude_binary()?;
 
     // Build the command: claude mcp add --transport stdio <name> -- <binary> --mcp-stdio-proxy
-    let output = tokio::process::Command::new("claude")
+    let output = tokio::process::Command::new(&claude_path)
         .args(&[
             "mcp",
             "add",
