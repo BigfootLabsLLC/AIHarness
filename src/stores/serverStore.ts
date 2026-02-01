@@ -43,6 +43,7 @@ interface ServerState {
   createProject: (name: string, rootPath: string) => Promise<{ project: ProjectInfo | null; error?: string }>;
   listProjectDirectory: (projectId: string, subPath?: string) => Promise<DirectoryListing | null>;
   listDirectory: (path: string) => Promise<DirectoryListing | null>;
+  getHomeDirectory: () => Promise<string | null>;
   loadBuildCommands: (projectId: string) => Promise<void>;
   addBuildCommand: (projectId: string, name: string, command: string, workingDir?: string) => Promise<void>;
   removeBuildCommand: (projectId: string, id: string) => Promise<void>;
@@ -436,6 +437,16 @@ export const useServerStore = create<ServerState>((set, get) => ({
       return listing;
     } catch (error) {
       console.error('Failed to list directory:', error);
+      return null;
+    }
+  },
+
+  getHomeDirectory: async () => {
+    try {
+      const home = await invoke<string>('get_home_directory');
+      return home;
+    } catch (error) {
+      console.error('Failed to get home directory:', error);
       return null;
     }
   },

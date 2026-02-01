@@ -988,6 +988,14 @@ async fn list_directory_impl(
     })
 }
 
+/// Get the user's home directory
+#[tauri::command]
+async fn get_home_directory() -> Result<String, String> {
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Could not determine home directory".to_string())
+}
+
 /// Get list of supported AI tools for MCP configuration
 #[tauri::command]
 async fn get_mcp_supported_tools() -> Result<Vec<mcp_config::AiToolInfo>, String> {
@@ -1169,6 +1177,7 @@ pub fn run() {
             move_context_note,
             list_project_directory,
             list_directory,
+            get_home_directory,
             list_build_commands,
             add_build_command,
             remove_build_command,

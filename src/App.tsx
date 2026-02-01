@@ -21,6 +21,7 @@ function App() {
     createProject,
     listProjectDirectory,
     listDirectory,
+    getHomeDirectory,
     addContextFile,
     addContextNote,
     updateContextNote,
@@ -35,7 +36,21 @@ function App() {
     configureMcpForTool,
     configureMcpForAllTools,
   } = useServerStore();
-  const [activeProject, setActiveProject] = useState('default');
+  const [activeProject, setActiveProjectState] = useState('default');
+  
+  // Persist active project to localStorage
+  const setActiveProject = (projectId: string) => {
+    setActiveProjectState(projectId);
+    localStorage.setItem('aiharness_last_project', projectId);
+  };
+  
+  // Restore last project on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('aiharness_last_project');
+    if (saved) {
+      setActiveProjectState(saved);
+    }
+  }, []);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectDraft, setProjectDraft] = useState({ name: '', rootPath: '' });
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -139,11 +154,14 @@ function App() {
     });
   }, [activeProjectInfo, activeProject, listProjectDirectory]);
 
+  // System file browser starts at home directory
   useEffect(() => {
-    if (activeProjectInfo?.root_path) {
-      setSystemRoot(activeProjectInfo.root_path);
-    }
-  }, [activeProjectInfo]);
+    getHomeDirectory().then((home) => {
+      if (home) {
+        setSystemRoot(home);
+      }
+    });
+  }, [getHomeDirectory]);
 
   useEffect(() => {
     if (!systemRoot) return;
@@ -208,6 +226,19 @@ function App() {
       const listing = await listDirectory(entry.path);
       if (listing) {
         setSystemTree((prev) => ({ ...prev, [listing.path]: listing }));
+      }
+    }
+  };
+
+  const navigateSystemUp = async () => {
+    const currentListing = systemTree[systemRoot];
+    if (currentListing?.parent_path) {
+      const parentPath = currentListing.parent_path;
+      setSystemRoot(parentPath);
+      const listing = await listDirectory(parentPath);
+      if (listing) {
+        setSystemTree({ [listing.path]: listing });
+        setSystemExpanded({ [parentPath]: true });
       }
     }
   };
@@ -298,9 +329,10 @@ function App() {
             <span className="status-port">:{port}</span>
           </div>
           {activeProjectInfo && (
-            <div className="project-chip">
+            <div className="project-chip" title={activeProjectInfo.root_path}>
               <span className="project-chip__label">Project</span>
               <span className="project-chip__name">{activeProjectInfo.name}</span>
+              <span className="project-chip__path">{activeProjectInfo.root_path}</span>
             </div>
           )}
         </div>
@@ -413,6 +445,7 @@ function App() {
                     expanded={projectExpanded}
                     onToggle={toggleProjectEntry}
                     onAddToContext={(entry) => addContextFile(activeProject, entry.path)}
+                    showParent={false}
                   />
                 ) : (
                   <FileTree
@@ -421,18 +454,70 @@ function App() {
                     expanded={systemExpanded}
                     onToggle={toggleSystemEntry}
                     onAddToContext={(entry) => addContextFile(activeProject, entry.path)}
+                    onNavigateUp={navigateSystemUp}
+                    showParent={true}
                   />
                 )}
               </div>
             </PanelShell>
 
-            <PanelShell title="Todo Queue" tabs={['Active', 'Backlog']}>
-              <div className="stack">
+            <PanelShell title={`Todo Queue (${todos.filter(t => !t.completed).length})`} tabs={['Active']}>
+              <div className="stack" style={{ gap: '4px' }}>
+                {/* Add new todo */}
+                <div className="todo-input-row">
+                  <input
+                    type="text"
+                    placeholder="Add a task..."
+                    className="todo-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const input = e.target as HTMLInputElement;
+                        if (input.value.trim()) {
+                          useServerStore.getState().addTodo(activeProject, input.value.trim());
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    className="todo-add-btn"
+                    onClick={() => {
+                      const input = document.querySelector('.todo-input') as HTMLInputElement;
+                      if (input?.value.trim()) {
+                        useServerStore.getState().addTodo(activeProject, input.value.trim());
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+                
+                {/* View all link */}
+                {todos.length > 5 && (
+                  <button
+                    className="todo-view-all"
+                    onClick={() => {
+                      const nextTab: MainTab = {
+                        id: `todos-${activeProject}`,
+                        title: 'All Todos',
+                        kind: 'todos',
+                        payload: { projectId: activeProject },
+                      };
+                      setTabs((prev) => addOrReplaceTab(prev, nextTab));
+                      setActiveTab(nextTab);
+                    }}
+                  >
+                    View all {todos.length} tasks →
+                  </button>
+                )}
+                
+                {/* Todo list */}
                 {todos.length === 0 ? (
-                  <div className="empty-state">No tasks yet.</div>
+                  <div className="empty-state" style={{ fontSize: '11px' }}>No tasks yet.</div>
                 ) : (
-                  todos.map((todo) => (
-                    <label key={todo.id} className="todo-row compact-row">
+                  todos.slice(0, 8).map((todo) => (
+                    <div key={todo.id} className="todo-item">
                       <input
                         type="checkbox"
                         checked={todo.completed}
@@ -440,11 +525,19 @@ function App() {
                           useServerStore.getState().setTodoCompleted(activeProject, todo.id, !todo.completed);
                         }}
                       />
-                      <div>
-                        <div className="row-title">{todo.title}</div>
-                        {todo.description && <div className="row-subtitle">{todo.description}</div>}
-                      </div>
-                    </label>
+                      <span className={`todo-text ${todo.completed ? 'completed' : ''}`}>
+                        {todo.title}
+                      </span>
+                      <button
+                        className="todo-remove"
+                        onClick={() => {
+                          useServerStore.getState().removeTodo(activeProject, todo.id);
+                        }}
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
                   ))
                 )}
               </div>
@@ -459,6 +552,10 @@ function App() {
                 <FileDetail payload={activeTab.payload as FilePayload} />
               ) : activeTab.kind === 'build' ? (
                 <BuildOutputDetail payload={activeTab.payload as BuildPayload} />
+              ) : activeTab.kind === 'todos' ? (
+                <TodosDetail 
+                  projectId={(activeTab.payload as TodosPayload)?.projectId || activeProject} 
+                />
               ) : (
                 <div className="canvas-empty">
                   <div className="canvas-title">Main Canvas</div>
@@ -669,8 +766,12 @@ function PanelShell({
 type MainTab = {
   id: string;
   title: string;
-  kind: 'home' | 'tool' | 'file' | 'build';
-  payload?: ToolCall | FilePayload | BuildPayload;
+  kind: 'home' | 'tool' | 'file' | 'build' | 'todos';
+  payload?: ToolCall | FilePayload | BuildPayload | TodosPayload;
+};
+
+type TodosPayload = {
+  projectId: string;
 };
 
 function tabFromToolCall(call: ToolCall): MainTab {
@@ -789,21 +890,106 @@ function BuildOutputDetail({ payload }: { payload?: BuildPayload }) {
   );
 }
 
+function TodosDetail({ projectId }: { projectId: string }) {
+  const { todos, addTodo, setTodoCompleted, removeTodo, loadTodos } = useServerStore();
+  const [newTodo, setNewTodo] = useState('');
+  
+  // Load todos for this project when viewing
+  useEffect(() => {
+    loadTodos(projectId);
+  }, [projectId, loadTodos]);
+  
+  const activeCount = todos.filter(t => !t.completed).length;
+  
+  return (
+    <div className="detail-card">
+      <div className="detail-header">
+        <div>
+          <div className="detail-title">Todo List</div>
+          <div className="detail-subtitle">{activeCount} active, {todos.length - activeCount} completed</div>
+        </div>
+      </div>
+      
+      <div className="detail-section">
+        {/* Add new todo */}
+        <div className="todo-input-row" style={{ marginBottom: '16px' }}>
+          <input
+            type="text"
+            placeholder="Add a new task..."
+            className="todo-input"
+            value={newTodo}
+            onChange={(e) => setNewTodo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newTodo.trim()) {
+                addTodo(projectId, newTodo.trim());
+                setNewTodo('');
+              }
+            }}
+          />
+          <button
+            className="todo-add-btn"
+            onClick={() => {
+              if (newTodo.trim()) {
+                addTodo(projectId, newTodo.trim());
+                setNewTodo('');
+              }
+            }}
+          >
+            Add
+          </button>
+        </div>
+        
+        {/* Todo list */}
+        <div className="todo-list-full">
+          {todos.length === 0 ? (
+            <div className="empty-state">No tasks yet. Add one above!</div>
+          ) : (
+            todos.map((todo) => (
+              <div key={todo.id} className={`todo-item-full ${todo.completed ? 'completed' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={todo.completed}
+                  onChange={() => setTodoCompleted(projectId, todo.id, !todo.completed)}
+                />
+                <div className="todo-content">
+                  <div className="todo-title">{todo.title}</div>
+                  {todo.description && <div className="todo-desc">{todo.description}</div>}
+                </div>
+                <button
+                  className="todo-remove"
+                  onClick={() => removeTodo(projectId, todo.id)}
+                  title="Remove task"
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FileTree({
   rootPath,
   listings,
   expanded,
   onToggle,
   onAddToContext,
+  onNavigateUp,
+  showParent = false,
 }: {
   rootPath: string;
   listings: Record<string, DirectoryListing>;
   expanded: Record<string, boolean>;
   onToggle: (entry: DirectoryEntry) => void;
   onAddToContext: (entry: DirectoryEntry) => void;
+  onNavigateUp?: () => void;
+  showParent?: boolean;
 }) {
   if (!rootPath) {
-    return <div className="empty-state">No project selected.</div>;
+    return <div className="empty-state">No directory selected.</div>;
   }
 
   const rootListing = listings[rootPath];
@@ -811,36 +997,88 @@ function FileTree({
     return <div className="empty-state">Loading tree...</div>;
   }
 
-  const renderNode = (path: string, depth: number) => {
-    const listing = listings[path];
-    if (!listing) return null;
+  return (
+    <div className="tree-view">
+      {/* Current path display with up navigation */}
+      <div className="tree-header">
+        {showParent && rootListing.parent_path && (
+          <button className="tree-nav-up" onClick={onNavigateUp}>
+            <span className="tree-icon">←</span>
+            <span className="tree-nav-label">Parent</span>
+          </button>
+        )}
+        <div className="tree-current-path" title={rootPath}>
+          {rootPath}
+        </div>
+      </div>
+      
+      {/* Tree nodes */}
+      <TreeNodes
+        path={rootPath}
+        listings={listings}
+        expanded={expanded}
+        onToggle={onToggle}
+        onAddToContext={onAddToContext}
+        depth={0}
+      />
+    </div>
+  );
+}
 
-    return listing.entries.map((entry) => {
-      const isExpanded = !!expanded[entry.path];
-      const hasChildren = entry.is_dir;
-      return (
-        <div key={entry.path}>
-          <div
-            className="tree-row"
-            style={{ paddingLeft: `${8 + depth * 12}px` }}
-          >
-            <button className="tree-toggle" onClick={() => onToggle(entry)}>
-              <span className="tree-icon">{hasChildren ? (isExpanded ? '▾' : '▸') : '·'}</span>
-              <span className="tree-name">{entry.name}</span>
-            </button>
-            {!entry.is_dir && (
-              <button className="file-action" onClick={() => onAddToContext(entry)}>
-                Add
+function TreeNodes({
+  path,
+  listings,
+  expanded,
+  onToggle,
+  onAddToContext,
+  depth,
+}: {
+  path: string;
+  listings: Record<string, DirectoryListing>;
+  expanded: Record<string, boolean>;
+  onToggle: (entry: DirectoryEntry) => void;
+  onAddToContext: (entry: DirectoryEntry) => void;
+  depth: number;
+}) {
+  const listing = listings[path];
+  if (!listing) return null;
+
+  return (
+    <>
+      {listing.entries.map((entry) => {
+        const isExpanded = !!expanded[entry.path];
+        const hasChildren = entry.is_dir;
+        return (
+          <div key={entry.path}>
+            <div
+              className="tree-row"
+              style={{ paddingLeft: `${8 + depth * 12}px` }}
+            >
+              <button className="tree-toggle" onClick={() => onToggle(entry)}>
+                <span className="tree-icon">{hasChildren ? (isExpanded ? '▾' : '▸') : '·'}</span>
+                <span className="tree-name">{entry.name}</span>
               </button>
+              {!entry.is_dir && (
+                <button className="file-action" onClick={() => onAddToContext(entry)}>
+                  Add
+                </button>
+              )}
+            </div>
+            {entry.is_dir && isExpanded && (
+              <TreeNodes
+                path={entry.path}
+                listings={listings}
+                expanded={expanded}
+                onToggle={onToggle}
+                onAddToContext={onAddToContext}
+                depth={depth + 1}
+              />
             )}
           </div>
-          {entry.is_dir && isExpanded && renderNode(entry.path, depth + 1)}
-        </div>
-      );
-    });
-  };
-
-  return <div className="tree-view">{renderNode(rootPath, 0)}</div>;
+        );
+      })}
+    </>
+  );
 }
 
 function relativeSubPath(rootPath: string, entryPath: string): string {
