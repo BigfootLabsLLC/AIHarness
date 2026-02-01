@@ -59,9 +59,8 @@ interface ServerState {
   addRawLog: (log: RawLog) => void;
   // MCP Config
   getMcpSupportedTools: () => Promise<McpToolInfo[]>;
-  generateMcpConfig: (tool: string, projectName: string, projectId: string) => Promise<string>;
-  writeMcpConfig: (tool: string, projectName: string, projectId: string) => Promise<McpConfigResult>;
-  configureMcpForAllTools: (projectName: string, projectId: string) => Promise<McpConfigResult[]>;
+  configureMcpForTool: (tool: string, projectId: string) => Promise<McpConfigResult>;
+  configureMcpForAllTools: (projectId: string) => Promise<McpConfigResult[]>;
 }
 
 export const useServerStore = create<ServerState>((set, get) => ({
@@ -497,34 +496,17 @@ export const useServerStore = create<ServerState>((set, get) => ({
     }
   },
 
-  generateMcpConfig: async (tool: string, projectName: string, projectId: string) => {
+  configureMcpForTool: async (tool: string, projectId: string) => {
     try {
       const port = get().port;
-      const config = await invoke<string>('generate_mcp_config_for_tool', {
+      const result = await invoke<McpConfigResult>('configure_mcp_for_tool', {
         tool,
-        project_name: projectName,
-        project_id: projectId,
-        port,
-      });
-      return config;
-    } catch (error) {
-      console.error('Failed to generate MCP config:', error);
-      throw error;
-    }
-  },
-
-  writeMcpConfig: async (tool: string, projectName: string, projectId: string) => {
-    try {
-      const port = get().port;
-      const result = await invoke<McpConfigResult>('write_mcp_config_for_tool', {
-        tool,
-        project_name: projectName,
         project_id: projectId,
         port,
       });
       return result;
     } catch (error) {
-      console.error('Failed to write MCP config:', error);
+      console.error('Failed to configure MCP:', error);
       return {
         success: false,
         message: String(error),
@@ -533,11 +515,10 @@ export const useServerStore = create<ServerState>((set, get) => ({
     }
   },
 
-  configureMcpForAllTools: async (projectName: string, projectId: string) => {
+  configureMcpForAllTools: async (projectId: string) => {
     try {
       const port = get().port;
       const results = await invoke<McpConfigResult[]>('configure_mcp_for_all_tools', {
-        project_name: projectName,
         project_id: projectId,
         port,
       });

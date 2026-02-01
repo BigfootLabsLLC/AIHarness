@@ -32,37 +32,39 @@ impl AiTool {
         }
     }
 
-    /// Get the configuration file path for this AI tool
-    pub fn config_path(&self) -> Result<PathBuf, ContextError> {
+    /// Get the configuration file path for this AI tool (for file-based configs)
+    pub fn config_path(&self) -> Result<Option<PathBuf>, ContextError> {
         let home = dirs::home_dir().ok_or_else(|| {
             ContextError::Config("Could not determine home directory".to_string())
         })?;
 
         match self {
             AiTool::Claude => {
-                // Claude Code: ~/.claude/settings.json or similar
-                // TODO: Confirm exact path from docs
-                Ok(home.join(".claude").join("settings.json"))
+                // Claude uses CLI commands, not files
+                Ok(None)
             }
             AiTool::Kimi => {
-                // Kimi CLI: ~/.kimi/mcp.json (based on MCP docs)
-                Ok(home.join(".kimi").join("mcp.json"))
+                // Kimi CLI: ~/.kimi/mcp.json
+                Ok(Some(home.join(".kimi").join("mcp.json")))
             }
             AiTool::Gemini => {
-                // Gemini CLI: TBD
-                // TODO: Add path from docs
-                Ok(home.join(".gemini").join("config.json"))
+                // TODO: Confirm from docs
+                Ok(Some(home.join(".gemini").join("config.json")))
             }
             AiTool::Codex => {
-                // Codex CLI: TBD
-                // TODO: Add path from docs
-                Ok(home.join(".codex").join("config.json"))
+                // TODO: Confirm from docs
+                Ok(Some(home.join(".codex").join("config.json")))
             }
         }
     }
+
+    /// Whether this tool uses CLI commands (not files) for configuration
+    pub fn uses_cli(&self) -> bool {
+        matches!(self, AiTool::Claude)
+    }
 }
 
-/// MCP server configuration structure
+/// MCP server configuration structure (for file-based configs)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
     pub name: String,
@@ -100,56 +102,142 @@ impl McpServerConfig {
             env: None,
         }
     }
-
-    /// Add a header (for HTTP transport)
-    pub fn with_header(mut self, key: &str, value: &str) -> Self {
-        let headers = self.headers.get_or_insert_with(HashMap::new);
-        headers.insert(key.to_string(), value.to_string());
-        self
-    }
-
-    /// Add an environment variable (for stdio transport)
-    pub fn with_env(mut self, key: &str, value: &str) -> Self {
-        let env = self.env.get_or_insert_with(HashMap::new);
-        env.insert(key.to_string(), value.to_string());
-        self
-    }
 }
 
-/// Generate MCP configuration for a specific AI tool and project
-pub async fn generate_mcp_config(
+/// Result of an MCP configuration operation
+#[derive(Debug, Clone, Serialize)]
+pub struct McpSetupResult {
+    pub success: bool,
+    pub message: String,
+    pub config_path: Option<String>,
+}
+
+/// Configure MCP for a specific AI tool and project
+pub async fn configure_mcp(
     tool: AiTool,
-    _project_name: &str,
     project_id: &str,
     server_port: u16,
-) -> Result<String, ContextError> {
-    let server_name = format!("aiharness-{}", project_id);
-    let server_url = format!("http://127.0.0.1:{}/mcp/{}", server_port, project_id);
+) -> Result<McpSetupResult, ContextError> {
+    let binary_path = detect_aiharness_binary()?;
 
     match tool {
-        AiTool::Claude => generate_claude_config(&server_name, &server_url).await,
-        AiTool::Kimi => generate_kimi_config(&server_name, &server_url).await,
-        AiTool::Gemini => generate_gemini_config(&server_name, &server_url).await,
-        AiTool::Codex => generate_codex_config(&server_name, &server_url).await,
+        AiTool::Claude => configure_claude(project_id, &binary_path).await,
+        AiTool::Kimi => configure_kimi(project_id, server_port).await,
+        AiTool::Gemini => configure_gemini(project_id, server_port).await,
+        AiTool::Codex => configure_codex(project_id, server_port).await,
     }
 }
 
-/// Write MCP configuration to the appropriate file for an AI tool
-pub async fn write_mcp_config(
-    tool: AiTool,
-    project_name: &str,
-    project_id: &str,
-    server_port: u16,
-) -> Result<(), ContextError> {
-    let config_path = tool.config_path()?;
-    let config_content = generate_mcp_config(tool, project_name, project_id, server_port).await?;
+/// Detect the AIHarness binary path
+/// 
+/// This handles multiple scenarios:
+/// - Running as built .app bundle on macOS
+/// - Running from cargo run in development
+/// - Running as installed binary
+fn detect_aiharness_binary() -> Result<PathBuf, ContextError> {
+    let current_exe = std::env::current_exe()
+        .map_err(|e| ContextError::Config(format!("Cannot determine current executable: {}", e)))?;
 
-    // Ensure parent directory exists
-    if let Some(parent) = config_path.parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(|e| {
-            ContextError::Config(format!("Failed to create config directory: {}", e))
-        })?;
+    // If we're running from cargo build/debug, the exe is the binary directly
+    // If we're in a .app bundle, we need to find the embedded binary
+    
+    // Check if we're in an .app bundle on macOS
+    if cfg!(target_os = "macos") {
+        let path_str = current_exe.to_string_lossy();
+        if path_str.contains(".app/") {
+            // We're in an app bundle - the binary should be at:
+            // MyApp.app/Contents/MacOS/aiharness
+            // But we might be running from the app itself
+            if let Some(app_pos) = path_str.find(".app/") {
+                let app_bundle = &path_str[..app_pos + 4];
+                let binary_in_bundle = format!("{}/Contents/MacOS/aiharness", app_bundle);
+                let bundle_path = PathBuf::from(&binary_in_bundle);
+                if bundle_path.exists() {
+                    return Ok(bundle_path);
+                }
+            }
+        }
     }
+
+    // Otherwise, use the current executable path
+    if current_exe.exists() {
+        return Ok(current_exe);
+    }
+
+    Err(ContextError::Config(
+        "Cannot find AIHarness binary".to_string()
+    ))
+}
+
+/// Configure Claude Code using CLI command
+/// 
+/// Command: claude mcp add --transport stdio <name> -- <binary> --mcp-stdio-proxy --project <project_id>
+async fn configure_claude(project_id: &str, binary_path: &PathBuf) -> Result<McpSetupResult, ContextError> {
+    let server_name = format!("aiharness-{}", project_id);
+    let binary_str = binary_path.to_string_lossy();
+
+    // Build the command: claude mcp add --transport stdio <name> -- <binary> --mcp-stdio-proxy
+    let output = tokio::process::Command::new("claude")
+        .args(&[
+            "mcp",
+            "add",
+            "--transport",
+            "stdio",
+            &server_name,
+            "--",
+            &binary_str,
+            "--mcp-stdio-proxy",
+        ])
+        .env("AIH_PORT", "8787")
+        .env("AIH_PROJECT_ID", project_id)
+        .output()
+        .await
+        .map_err(|e| ContextError::Config(format!("Failed to run claude command: {}", e)))?;
+
+    if output.status.success() {
+        Ok(McpSetupResult {
+            success: true,
+            message: format!("Added '{}' to Claude Code", server_name),
+            config_path: None,
+        })
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Check if it's already configured (not necessarily an error)
+        if stderr.contains("already exists") {
+            Ok(McpSetupResult {
+                success: true,
+                message: format!("'{}' is already configured in Claude Code", server_name),
+                config_path: None,
+            })
+        } else {
+            Ok(McpSetupResult {
+                success: false,
+                message: format!("Claude command failed: {}", stderr),
+                config_path: None,
+            })
+        }
+    }
+}
+
+/// Configure Kimi CLI using file-based config
+async fn configure_kimi(project_id: &str, server_port: u16) -> Result<McpSetupResult, ContextError> {
+    let config_path = match AiTool::Kimi.config_path()? {
+        Some(p) => p,
+        None => return Err(ContextError::Config("No config path for Kimi".to_string())),
+    };
+
+    let server_url = format!("http://127.0.0.1:{}/mcp/{}", server_port, project_id);
+    let server_name = format!("aiharness-{}", project_id);
+
+    // Create the config entry
+    let config = serde_json::json!({
+        "mcpServers": {
+            server_name.clone(): {
+                "url": server_url,
+                "transport": "http"
+            }
+        }
+    });
 
     // Read existing config if present
     let existing_config = if config_path.exists() {
@@ -158,133 +246,94 @@ pub async fn write_mcp_config(
         None
     };
 
-    // Merge or create new config
-    let merged_config = merge_mcp_config(existing_config, &config_content, tool).await?;
+    // Merge configs
+    let merged = merge_mcp_config(existing_config, config).await?;
+
+    // Ensure parent directory exists
+    if let Some(parent) = config_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            ContextError::Config(format!("Failed to create config directory: {}", e))
+        })?;
+    }
 
     // Write the config
-    tokio::fs::write(&config_path, merged_config).await.map_err(|e| {
+    tokio::fs::write(&config_path, merged).await.map_err(|e| {
         ContextError::Config(format!("Failed to write config file: {}", e))
     })?;
 
-    Ok(())
+    Ok(McpSetupResult {
+        success: true,
+        message: format!("Added '{}' to Kimi CLI", server_name),
+        config_path: Some(config_path.to_string_lossy().to_string()),
+    })
 }
 
-/// Generate configuration for Claude Code
-/// Format: TBD - waiting for documentation
-async fn generate_claude_config(_server_name: &str, _server_url: &str) -> Result<String, ContextError> {
-    // TODO: Update with correct format from docs
-    // Placeholder format - will be replaced with actual Claude Code format
-    let config = serde_json::json!({
-        "mcpServers": {
-            "aiharness": {
-                "url": _server_url,
-                "transport": "http"
-            }
-        }
-    });
-    
-    serde_json::to_string_pretty(&config)
-        .map_err(|e| ContextError::Config(format!("Failed to serialize config: {}", e)))
+/// Configure Gemini CLI (TODO: update when docs available)
+async fn configure_gemini(_project_id: &str, _server_port: u16) -> Result<McpSetupResult, ContextError> {
+    // TODO: Update when documentation is provided
+    Ok(McpSetupResult {
+        success: false,
+        message: "Gemini CLI configuration not yet implemented - waiting for docs".to_string(),
+        config_path: None,
+    })
 }
 
-/// Generate configuration for Kimi CLI
-/// Format: ~/.kimi/mcp.json
-async fn generate_kimi_config(_server_name: &str, server_url: &str) -> Result<String, ContextError> {
-    let config = serde_json::json!({
-        "mcpServers": {
-            "aiharness": {
-                "url": server_url,
-                "transport": "http"
-            }
-        }
-    });
-    
-    serde_json::to_string_pretty(&config)
-        .map_err(|e| ContextError::Config(format!("Failed to serialize config: {}", e)))
-}
-
-/// Generate configuration for Gemini CLI
-/// Format: TBD - waiting for documentation
-async fn generate_gemini_config(_server_name: &str, server_url: &str) -> Result<String, ContextError> {
-    // TODO: Update with correct format from docs
-    let config = serde_json::json!({
-        "mcpServers": {
-            "aiharness": {
-                "url": server_url,
-                "transport": "http"
-            }
-        }
-    });
-    
-    serde_json::to_string_pretty(&config)
-        .map_err(|e| ContextError::Config(format!("Failed to serialize config: {}", e)))
-}
-
-/// Generate configuration for Codex CLI
-/// Format: TBD - waiting for documentation
-async fn generate_codex_config(_server_name: &str, server_url: &str) -> Result<String, ContextError> {
-    // TODO: Update with correct format from docs
-    let config = serde_json::json!({
-        "mcpServers": {
-            "aiharness": {
-                "url": server_url,
-                "transport": "http"
-            }
-        }
-    });
-    
-    serde_json::to_string_pretty(&config)
-        .map_err(|e| ContextError::Config(format!("Failed to serialize config: {}", e)))
+/// Configure Codex CLI (TODO: update when docs available)
+async fn configure_codex(_project_id: &str, _server_port: u16) -> Result<McpSetupResult, ContextError> {
+    // TODO: Update when documentation is provided
+    Ok(McpSetupResult {
+        success: false,
+        message: "Codex CLI configuration not yet implemented - waiting for docs".to_string(),
+        config_path: None,
+    })
 }
 
 /// Merge new MCP config with existing config
 async fn merge_mcp_config(
     existing: Option<String>,
-    new_config: &str,
-    tool: AiTool,
+    new_config: serde_json::Value,
 ) -> Result<String, ContextError> {
-    match tool {
-        AiTool::Claude | AiTool::Kimi | AiTool::Gemini | AiTool::Codex => {
-            // Standard JSON merge for mcpServers
-            let mut existing_json: serde_json::Value = if let Some(content) = existing {
-                serde_json::from_str(&content)
-                    .map_err(|e| ContextError::Config(format!("Invalid existing config: {}", e)))?
-            } else {
-                serde_json::json!({})
-            };
+    let mut existing_json: serde_json::Value = if let Some(content) = existing {
+        serde_json::from_str(&content)
+            .map_err(|e| ContextError::Config(format!("Invalid existing config: {}", e)))?
+    } else {
+        serde_json::json!({})
+    };
 
-            let new_json: serde_json::Value = serde_json::from_str(new_config)
-                .map_err(|e| ContextError::Config(format!("Invalid new config: {}", e)))?;
+    // Merge mcpServers
+    if let Some(new_servers) = new_config.get("mcpServers") {
+        let existing_servers = existing_json
+            .as_object_mut()
+            .ok_or_else(|| ContextError::Config("Invalid config structure".to_string()))?
+            .entry("mcpServers")
+            .or_insert_with(|| serde_json::json!({}))
+            .as_object_mut()
+            .ok_or_else(|| ContextError::Config("Invalid mcpServers structure".to_string()))?;
 
-            // Merge mcpServers
-            if let Some(new_servers) = new_json.get("mcpServers") {
-                let existing_servers = existing_json
-                    .as_object_mut()
-                    .ok_or_else(|| ContextError::Config("Invalid config structure".to_string()))?
-                    .entry("mcpServers")
-                    .or_insert_with(|| serde_json::json!({}))
-                    .as_object_mut()
-                    .ok_or_else(|| ContextError::Config("Invalid mcpServers structure".to_string()))?;
-
-                for (key, value) in new_servers.as_object().unwrap_or(&serde_json::Map::new()) {
-                    existing_servers.insert(key.clone(), value.clone());
-                }
-            }
-
-            serde_json::to_string_pretty(&existing_json)
-                .map_err(|e| ContextError::Config(format!("Failed to serialize merged config: {}", e)))
+        for (key, value) in new_servers.as_object().unwrap_or(&serde_json::Map::new()) {
+            existing_servers.insert(key.clone(), value.clone());
         }
     }
+
+    serde_json::to_string_pretty(&existing_json)
+        .map_err(|e| ContextError::Config(format!("Failed to serialize merged config: {}", e)))
 }
 
 /// Get information about MCP configuration for all supported tools
 pub fn get_mcp_config_info() -> Vec<AiToolInfo> {
     AiTool::all()
         .into_iter()
-        .map(|tool| AiToolInfo {
-            tool,
-            name: tool.display_name().to_string(),
-            config_path: tool.config_path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
+        .map(|tool| {
+            let config_path_str = tool.config_path()
+                .map(|p| p.map(|path| path.to_string_lossy().to_string()).unwrap_or_default())
+                .unwrap_or_default();
+            
+            AiToolInfo {
+                tool,
+                name: tool.display_name().to_string(),
+                uses_cli: tool.uses_cli(),
+                config_path: if config_path_str.is_empty() { None } else { Some(config_path_str) },
+            }
         })
         .collect()
 }
@@ -294,7 +343,8 @@ pub fn get_mcp_config_info() -> Vec<AiToolInfo> {
 pub struct AiToolInfo {
     pub tool: AiTool,
     pub name: String,
-    pub config_path: String,
+    pub uses_cli: bool,
+    pub config_path: Option<String>,
 }
 
 #[cfg(test)]
@@ -307,34 +357,28 @@ mod tests {
         assert_eq!(tools.len(), 4);
         assert!(tools.contains(&AiTool::Claude));
         assert!(tools.contains(&AiTool::Kimi));
-        assert!(tools.contains(&AiTool::Gemini));
-        assert!(tools.contains(&AiTool::Codex));
     }
 
     #[test]
-    fn ai_tool_display_names() {
-        assert_eq!(AiTool::Claude.display_name(), "Claude Code");
-        assert_eq!(AiTool::Kimi.display_name(), "Kimi CLI");
-        assert_eq!(AiTool::Gemini.display_name(), "Gemini CLI");
-        assert_eq!(AiTool::Codex.display_name(), "Codex CLI");
+    fn ai_tool_uses_cli() {
+        assert!(AiTool::Claude.uses_cli());
+        assert!(!AiTool::Kimi.uses_cli());
     }
 
-    #[tokio::test]
-    async fn generate_kimi_config_creates_valid_json() {
-        let config = generate_kimi_config("test-project", "http://127.0.0.1:8787/mcp/test")
-            .await
-            .unwrap();
-        
-        let parsed: serde_json::Value = serde_json::from_str(&config).unwrap();
-        assert!(parsed.get("mcpServers").is_some());
+    #[test]
+    fn ai_tool_config_path() {
+        // Claude returns None (uses CLI)
+        assert!(AiTool::Claude.config_path().unwrap().is_none());
+        // Kimi returns Some path
+        assert!(AiTool::Kimi.config_path().unwrap().is_some());
     }
 
     #[tokio::test]
     async fn merge_config_adds_new_server() {
         let existing = Some(r#"{"mcpServers":{"existing":{"url":"http://test"}}}"#.to_string());
-        let new = r#"{"mcpServers":{"new":{"url":"http://new"}}}"#;
+        let new = serde_json::json!({"mcpServers":{"new":{"url":"http://new"}}});
         
-        let merged = merge_mcp_config(existing, new, AiTool::Kimi).await.unwrap();
+        let merged = merge_mcp_config(existing, new).await.unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&merged).unwrap();
         
         let servers = parsed.get("mcpServers").unwrap();

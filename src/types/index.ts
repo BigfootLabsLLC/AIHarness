@@ -102,10 +102,11 @@ export interface RawLog {
 export interface McpToolInfo {
   tool: string;
   name: string;
-  config_path: string;
+  uses_cli: boolean;
+  config_path: string | null;
 }
 
-/** Result of writing MCP configuration */
+/** Result of MCP configuration operation */
 export interface McpConfigResult {
   success: boolean;
   message: string;

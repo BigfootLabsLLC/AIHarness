@@ -32,7 +32,7 @@ function App() {
     executeTool,
     setCurrentProject,
     getMcpSupportedTools,
-    writeMcpConfig,
+    configureMcpForTool,
     configureMcpForAllTools,
   } = useServerStore();
   const [activeProject, setActiveProject] = useState('default');
@@ -610,13 +610,13 @@ function App() {
           isConfiguring={isMcpConfiguring}
           onConfigureAll={async () => {
             setIsMcpConfiguring(true);
-            const results = await configureMcpForAllTools(activeProjectInfo.name, activeProjectInfo.id);
+            const results = await configureMcpForAllTools(activeProjectInfo.id);
             setMcpResults(results);
             setIsMcpConfiguring(false);
           }}
           onConfigureOne={async (tool: string) => {
             setIsMcpConfiguring(true);
-            const result = await writeMcpConfig(tool, activeProjectInfo.name, activeProjectInfo.id);
+            const result = await configureMcpForTool(tool, activeProjectInfo.id);
             setMcpResults((prev) => [...prev, result]);
             setIsMcpConfiguring(false);
           }}
@@ -977,7 +977,7 @@ function McpConfigModal({
                   className={`button ${result?.success ? 'success' : result ? 'error' : ''}`}
                   onClick={() => onConfigureOne(tool.tool.toLowerCase())}
                   disabled={isConfiguring}
-                  title={tool.config_path}
+                  title={tool.config_path ?? undefined}
                 >
                   {tool.name}
                   {result && (result.success ? ' ✓' : ' ✗')}
