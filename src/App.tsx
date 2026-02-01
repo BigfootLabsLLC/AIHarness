@@ -55,6 +55,7 @@ function App() {
   const [projectDraft, setProjectDraft] = useState({ name: '', rootPath: '' });
   const [projectError, setProjectError] = useState<string | null>(null);
   const [filePanelTab, setFilePanelTab] = useState<'project' | 'system'>('project');
+  const [showHiddenFiles, setShowHiddenFiles] = useState(false);
   const [contextPanelTab, setContextPanelTab] = useState<'context' | 'notes'>('context');
   const [projectTree, setProjectTree] = useState<Record<string, DirectoryListing>>({});
   const [projectExpanded, setProjectExpanded] = useState<Record<string, boolean>>({});
@@ -446,6 +447,8 @@ function App() {
                     onToggle={toggleProjectEntry}
                     onAddToContext={(entry) => addContextFile(activeProject, entry.path)}
                     showParent={false}
+                    showHidden={showHiddenFiles}
+                    onToggleHidden={() => setShowHiddenFiles(!showHiddenFiles)}
                   />
                 ) : (
                   <FileTree
@@ -456,6 +459,8 @@ function App() {
                     onAddToContext={(entry) => addContextFile(activeProject, entry.path)}
                     onNavigateUp={navigateSystemUp}
                     showParent={true}
+                    showHidden={showHiddenFiles}
+                    onToggleHidden={() => setShowHiddenFiles(!showHiddenFiles)}
                   />
                 )}
               </div>
@@ -979,6 +984,8 @@ function FileTree({
   onAddToContext,
   onNavigateUp,
   showParent = false,
+  showHidden = false,
+  onToggleHidden,
 }: {
   rootPath: string;
   listings: Record<string, DirectoryListing>;
@@ -987,6 +994,8 @@ function FileTree({
   onAddToContext: (entry: DirectoryEntry) => void;
   onNavigateUp?: () => void;
   showParent?: boolean;
+  showHidden?: boolean;
+  onToggleHidden?: () => void;
 }) {
   if (!rootPath) {
     return <div className="empty-state">No directory selected.</div>;
@@ -1010,17 +1019,29 @@ function FileTree({
         <div className="tree-current-path" title={rootPath}>
           {rootPath}
         </div>
+        {onToggleHidden && (
+          <button 
+            className="tree-hidden-toggle" 
+            onClick={onToggleHidden}
+            title={showHidden ? "Hide hidden files" : "Show hidden files"}
+          >
+            {showHidden ? "Hide .files" : "Show .files"}
+          </button>
+        )}
       </div>
       
       {/* Tree nodes */}
-      <TreeNodes
-        path={rootPath}
-        listings={listings}
-        expanded={expanded}
-        onToggle={onToggle}
-        onAddToContext={onAddToContext}
-        depth={0}
-      />
+      <div className="tree-nodes-scrollable">
+        <TreeNodes
+          path={rootPath}
+          listings={listings}
+          expanded={expanded}
+          onToggle={onToggle}
+          onAddToContext={onAddToContext}
+          depth={0}
+          showHidden={showHidden}
+        />
+      </div>
     </div>
   );
 }
@@ -1032,6 +1053,7 @@ function TreeNodes({
   onToggle,
   onAddToContext,
   depth,
+  showHidden,
 }: {
   path: string;
   listings: Record<string, DirectoryListing>;
@@ -1039,13 +1061,19 @@ function TreeNodes({
   onToggle: (entry: DirectoryEntry) => void;
   onAddToContext: (entry: DirectoryEntry) => void;
   depth: number;
+  showHidden: boolean;
 }) {
   const listing = listings[path];
   if (!listing) return null;
 
+  // Filter out hidden files/folders (starting with .) unless showHidden is true
+  const visibleEntries = showHidden 
+    ? listing.entries 
+    : listing.entries.filter(entry => !entry.name.startsWith('.'));
+
   return (
     <>
-      {listing.entries.map((entry) => {
+      {visibleEntries.map((entry) => {
         const isExpanded = !!expanded[entry.path];
         const hasChildren = entry.is_dir;
         return (
@@ -1072,6 +1100,7 @@ function TreeNodes({
                 onToggle={onToggle}
                 onAddToContext={onAddToContext}
                 depth={depth + 1}
+                showHidden={showHidden}
               />
             )}
           </div>

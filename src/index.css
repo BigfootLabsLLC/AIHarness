@@ -264,7 +264,19 @@
     flex-direction: column;
     gap: 4px;
     min-height: 0;
-    overflow: auto;
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Specific panel max heights */
+  .panel-shell:has(.tree-view) .panel-shell__body {
+    max-height: 360px;
+  }
+
+  .panel-shell:has(.todo-item) .panel-shell__body,
+  .panel-shell:has(.todo-input-row) .panel-shell__body {
+    max-height: 280px;
   }
 
   .stack {
@@ -915,6 +927,30 @@
     padding: 4px 0;
     border-bottom: 1px solid var(--border-soft);
     margin-bottom: 4px;
+  }
+
+  .tree-hidden-toggle {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-500);
+    background: var(--bone-100);
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 2px 6px;
+    cursor: pointer;
+    align-self: flex-start;
+  }
+
+  .tree-hidden-toggle:hover {
+    background: var(--bone-200);
+    color: var(--ink-700);
+  }
+
+  .tree-nodes-scrollable {
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .tree-nav-up {

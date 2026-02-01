@@ -742,6 +742,474 @@ interface PanelParticipant {
 
 ---
 
+## Phase 18: External CLI Agent Integration (v2.0) ⭐ PLANNED
+
+### 18.1 Overview
+**Goal:** Embed external CLI-based AI agents (Kimi, Claude Code, etc.) directly into AIHarness as first-class citizens within the Control Center architecture.
+
+**Philosophy:** Instead of building everything from scratch, leverage best-in-class CLI tools while providing a unified management interface and shared context.
+
+### 18.2 Right Sidebar Agents Panel
+
+**Goal:** Dedicated panel in the right sidebar for managing active CLI agents.
+
+**UI Components:**
+```
+┌─────────────────────────────┐
+│  Active Agents          [+] │  ← Header with "New Agent" button
+├─────────────────────────────┤
+│                             │
+│  [●] Kimi #1                │  ← Active agent entry
+│      Thinking...            │     (pulsing indicator when active)
+│                             │
+│  [⚠] Claude Code            │  ← Agent needing attention
+│      Approval pending       │     (alert indicator)
+│                             │
+│  [●] Kimi #2                │  ← Another agent instance
+│      Idle                   │
+│                             │
+└─────────────────────────────┘
+```
+
+**Agent Entry Display:**
+- **Status Indicator:** Pulsing dot when active, static when idle, warning icon when needs attention
+- **Agent Name/Type:** Human-readable name + CLI type (Kimi, Claude, etc.)
+- **Activity Summary:** Brief status text ("Thinking...", "Approval pending", "Running tests...")
+- **Thinking Details:** Optional expandable thinking/reasoning display (if CLI provides it)
+- **Alert Badge:** Visual indicator when agent requires user intervention
+
+**Key Deliverables:**
+- [ ] Agents panel container in right sidebar
+- [ ] Agent entry list component with status indicators
+- [ ] "New Agent" button with popup selector
+- [ ] Click-to-focus interaction (opens agent in main view)
+- [ ] Real-time status updates via backend events
+
+### 18.3 Agent Type System & Custom Containers
+
+**Goal:** Pluggable architecture supporting multiple CLI agent types, each with custom configuration and behavior.
+
+**Core Abstraction:**
+```rust
+pub trait CliAgentType: Send + Sync {
+    /// Unique identifier for this agent type (e.g., "kimi", "claude-code")
+    fn id(&self) -> &'static str;
+    
+    /// Display name for UI (e.g., "Kimi Code CLI")
+    fn display_name(&self) -> &'static str;
+    
+    /// Icon/path for UI representation
+    fn icon(&self) -> Option<&'static str>;
+    
+    /// Create a new agent instance
+    fn create_container(&self, config: AgentConfig) -> Box<dyn CliAgentContainer>;
+    
+    /// Available configuration options for new agent modal
+    fn configuration_schema(&self) -> Vec<ConfigOption>;
+    
+    /// Check if this agent type is available (binary installed, etc.)
+    fn is_available(&self) -> bool;
+}
+
+pub trait CliAgentContainer: Send + Sync {
+    /// Start the agent process
+    async fn start(&mut self) -> Result<(), AgentError>;
+    
+    /// Send input to the agent
+    async fn send_input(&mut self, input: &str) -> Result<(), AgentError>;
+    
+    /// Get current status
+    fn status(&self) -> AgentStatus;
+    
+    /// Get thinking/reasoning data if available
+    fn thinking_state(&self) -> Option<ThinkingState>;
+    
+    /// Subscribe to output/events stream
+    fn subscribe_events(&self) -> broadcast::Receiver<AgentEvent>;
+    
+    /// Terminate the agent
+    async fn terminate(&mut self) -> Result<(), AgentError>;
+}
+```
+
+**Agent Configuration Options:**
+```rust
+pub struct AgentConfig {
+    /// Working directory for this agent
+    pub working_dir: PathBuf,
+    
+    /// Environment variables
+    pub env_vars: HashMap<String, String>,
+    
+    /// Type-specific configuration
+    pub type_config: HashMap<String, ConfigValue>,
+    
+    /// Session persistence ID (optional)
+    pub session_id: Option<String>,
+    
+    /// Cost tracking enabled
+    pub track_costs: bool,
+}
+
+pub enum ConfigValue {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+    Select { options: Vec<String>, default: String },
+}
+```
+
+**Key Deliverables:**
+- [ ] `CliAgentType` trait definition
+- [ ] `CliAgentContainer` trait definition
+- [ ] Agent type registry (dynamic registration)
+- [ ] Configuration schema system
+- [ ] Availability detection for each agent type
+
+### 18.4 Kimi CLI Integration (Reference Implementation)
+
+**Goal:** Full Kimi CLI support via Wire mode as the first implemented agent type.
+
+**KimiAgentContainer Implementation:**
+```rust
+pub struct KimiAgentContainer {
+    process: Option<Child>,
+    stdin: Option<ChildStdin>,
+    event_sender: broadcast::Sender<AgentEvent>,
+    status: Arc<RwLock<AgentStatus>>,
+    thinking_state: Arc<RwLock<Option<ThinkingState>>>,
+    wire_protocol: WireProtocolHandler,
+}
+
+impl CliAgentContainer for KimiAgentContainer {
+    async fn start(&mut self) -> Result<(), AgentError> {
+        // Spawn: kimi --wire --work-dir <dir> --session <id>
+        // Initialize wire protocol handshake
+        // Start event streaming tasks
+    }
+    
+    async fn send_input(&mut self, input: &str) -> Result<(), AgentError> {
+        // Send JSON-RPC prompt request via stdin
+        // Handle streaming response events
+    }
+    
+    fn thinking_state(&self) -> Option<ThinkingState> {
+        // Extract from wire protocol events
+        // Kimi provides thinking mode via --thinking flag
+    }
+}
+```
+
+**Kimi-Specific Configuration:**
+- `--model`: Model selection (e.g., "kimi-k2")
+- `--thinking`: Enable thinking mode
+- `--session`: Session ID for persistence
+- `--work-dir`: Working directory
+- `--mcp-config-file`: MCP server configuration
+- `--yolo`: Auto-approve mode (use with caution)
+
+**Wire Protocol Event Mapping:**
+```rust
+pub enum AgentEvent {
+    /// Agent started successfully
+    Started,
+    
+    /// Agent terminated
+    Stopped { reason: StopReason },
+    
+    /// Output chunk from agent
+    Output { content: String, is_stderr: bool },
+    
+    /// Agent is thinking/reasoning
+    Thinking { content: String },
+    
+    /// Tool call executed
+    ToolCall { name: String, arguments: Value, result: Value },
+    
+    /// Approval request from agent
+    ApprovalRequest { 
+        request_id: String, 
+        tool_name: String, 
+        arguments: Value,
+        description: String,
+    },
+    
+    /// Status changed
+    StatusChanged { old: AgentStatus, new: AgentStatus },
+    
+    /// Error occurred
+    Error { message: String, fatal: bool },
+}
+```
+
+**Key Deliverables:**
+- [ ] Kimi agent type implementation
+- [ ] Wire protocol JSON-RPC handler
+- [ ] Event streaming to frontend
+- [ ] Approval request routing to UI
+- [ ] Session persistence support
+
+### 18.5 New Agent Creation Flow
+
+**Goal:** Simple modal/dialog for creating new agent instances.
+
+**UI Flow:**
+1. User clicks `[+]` in Agents panel
+2. Modal appears showing available agent types:
+   ```
+   ┌─────────────────────────────────────┐
+   │  Start New Agent              [×]   │
+   ├─────────────────────────────────────┤
+   │                                     │
+   │  [🌙] Kimi Code CLI            →   │
+   │      Available (v0.69.0)            │
+   │                                     │
+   │  [◐] Claude Code               →   │
+   │      Not installed                  │
+   │                                     │
+   │  [●] Aider                       →   │
+   │      Available                      │
+   │                                     │
+   └─────────────────────────────────────┘
+   ```
+3. User selects agent type
+4. Configuration form appears with type-specific options:
+   ```
+   ┌─────────────────────────────────────┐
+   │  Configure Kimi Agent         [×]   │
+   ├─────────────────────────────────────┤
+   │                                     │
+   │  Name: [Kimi Helper          ]      │
+   │                                     │
+   │  Working Directory:                 │
+   │  [/path/to/project           ] […]  │
+   │                                     │
+   │  Model: [kimi-k2 ▼]                 │
+   │                                     │
+   │  [✓] Enable thinking mode           │
+   │                                     │
+   │  Session: [New session ▼]           │
+   │                                     │
+   │        [Cancel]  [Start Agent]      │
+   │                                     │
+   └─────────────────────────────────────┘
+   ```
+5. Agent starts, appears in sidebar, auto-opens in main view
+
+**Key Deliverables:**
+- [ ] Agent type selector modal
+- [ ] Dynamic configuration form generation
+- [ ] Working directory picker
+- [ ] Session selection (new/existing)
+- [ ] Form validation
+
+### 18.6 Main Content Agent View
+
+**Goal:** Rich, interactive view for interacting with an active agent.
+
+**Layout:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [◀] Kimi Helper                    [⚙] [⏸] [⏹] [×]       │  ← Header with controls
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─ Conversation ────────────────────────────────────────┐ │
+│  │                                                       │ │
+│  │  User: Refactor this code                            │ │
+│  │                                                       │ │
+│  │  [Thinking... ▼]                                     │ │  ← Collapsible thinking
+│  │  ├─ I'll analyze the code structure...               │ │
+│  │  └─ Looking for repeated patterns...                 │ │
+│  │                                                       │ │
+│  │  Kimi: I'll help refactor this code.                  │ │
+│  │                                                       │ │
+│  │  ┌─ Tool: ReadFile ─────────────────────────────────┐│ │
+│  │  │ Path: src/utils.ts                               ││ │
+│  │  │ [Show output ▼]                                 ││ │
+│  │  └──────────────────────────────────────────────────┘│ │
+│  │                                                       │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌─ Context & Files ─────────────────────────────────────┐ │  ← Right panel or tabs
+│  │ [+ Add File]  [+ Add Folder]  [+ Paste Text]         │ │
+│  │ • README.md                                          │ │
+│  │ • src/main.ts                                        │ │
+│  │ • docs/api.md                                        │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                                                             │
+│  $ █                                                        │  ← Input line (sticky)
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Header:** Back to agents list, settings, pause/resume, stop, close
+- **Conversation View:** Scrollable message history with:
+  - User messages (editable)
+  - AI responses with markdown rendering
+  - Thinking/reasoning blocks (collapsible)
+  - Tool call cards (expandable with arguments and results)
+  - Approval request banners (with approve/reject buttons)
+- **Context Panel:** Add/remove files, folders, or text snippets to agent context
+- **Input Line:** Command input with history, autocomplete, @mentions for files
+
+**Input Features:**
+- `/` commands (passthrough to CLI)
+- `@` mentions for file references
+- Up/down arrow for history
+- Multi-line input (Shift+Enter)
+- Drag-and-drop files into context
+
+**Key Deliverables:**
+- [ ] Agent view container component
+- [ ] Conversation message list with virtual scrolling
+- [ ] Message rendering (markdown, code blocks, tool calls)
+- [ ] Thinking/reasoning display component
+- [ ] Tool call visualization cards
+- [ ] Approval request UI
+- [ ] Context panel with file management
+- [ ] Input line with history and autocomplete
+- [ ] Header with agent controls
+
+### 18.7 Thinking State Display
+
+**Goal:** Visualize agent reasoning/thinking when CLI provides it.
+
+**Kimi-Specific:**
+- Kimi supports `--thinking` flag
+- Wire protocol may emit thinking events
+- Display as collapsible blocks between user input and AI response
+
+**UI Pattern:**
+```
+User: How do I optimize this database query?
+
+[🧠 Thinking... (click to expand)]
+  ├─ The user is asking about database optimization
+  ├─ I should check if there's an existing schema
+  └─ Possible approaches: indexing, query restructuring, caching
+
+Kimi: Here are several ways to optimize your query...
+```
+
+**Other Agents:**
+- Some agents may provide thinking via stderr
+- Some via custom protocol extensions
+- Container should normalize to common `ThinkingState` format
+
+**Key Deliverables:**
+- [ ] Thinking state data model
+- [ ] Collapsible thinking block UI
+- [ ] Real-time thinking updates
+- [ ] Per-agent-type thinking extraction
+
+### 18.8 Alert/Notification System
+
+**Goal:** Notify user when agent needs attention (approval, error, completion).
+
+**Alert Types:**
+- **Approval Required:** Agent wants to execute a tool/command
+- **Error:** Agent encountered an error and stopped
+- **Completed:** Agent finished its task
+- **Budget Warning:** Approaching cost limit
+- **Input Required:** Agent needs clarification
+
+**UI Indicators:**
+- Sidebar: Badge count on agent entry
+- Main view: Banner at top
+- System: Optional native notification
+
+**Approval Flow:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️ Approval Required                                       │
+│  Kimi wants to execute: Shell("rm -rf node_modules")        │
+│                                                             │
+│  [View Details] [Approve] [Reject] [Approve Always]         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Deliverables:**
+- [ ] Alert state management
+- [ ] Sidebar badge system
+- [ ] In-view alert banners
+- [ ] Approval dialog/detail view
+- [ ] "Always approve" options (per tool, per session)
+- [ ] Native notification integration (optional)
+
+### 18.9 Future Extensibility Points
+
+**Planned Future Features:**
+- **Agent Templates:** Save/load common agent configurations
+- **Agent Teams:** Link multiple agents for coordinated work
+- **Agent Scripting:** Automate agent interactions
+- **Cost Sharing:** Allocate budget across agents
+- **Context Sharing:** Shared context between agents
+- **Agent Marketplace:** Download configurations for specific tasks
+- **Custom Agents:** Plugin system for non-CLI agents
+- **Agent Comparison:** Run same task on multiple agents, compare results
+
+**Extensibility Hooks:**
+```rust
+// Plugin extension point
+pub trait AgentExtension {
+    fn on_event(&self, event: &AgentEvent) -> Option<AgentEvent>;
+    fn modify_ui(&self, ui: &mut AgentViewBuilder);
+}
+
+// Custom command handlers
+pub trait AgentCommandHandler {
+    fn handles(&self, command: &str) -> bool;
+    fn execute(&self, command: &str, agent: &mut dyn CliAgentContainer) -> Result<String, Error>;
+}
+```
+
+### 18.10 Backend Architecture
+
+**Rust Implementation Sketch:**
+```rust
+// src-tauri/src/agents/
+pub mod types;        // Core traits and types
+pub mod manager;      // AgentManager for lifecycle
+pub mod kimi;         // Kimi CLI integration
+pub mod registry;     // Agent type registry
+
+// AgentManager
+pub struct AgentManager {
+    registry: Arc<AgentTypeRegistry>,
+    active_agents: RwLock<HashMap<AgentId, Box<dyn CliAgentContainer>>>,
+    event_bus: broadcast::Sender<AgentManagerEvent>,
+}
+
+impl AgentManager {
+    pub async fn create_agent(
+        &self, 
+        agent_type: &str, 
+        config: AgentConfig
+    ) -> Result<AgentId, AgentError>;
+    
+    pub async fn send_to_agent(
+        &self, 
+        agent_id: AgentId, 
+        input: &str
+    ) -> Result<(), AgentError>;
+    
+    pub fn get_agent_status(&self, agent_id: AgentId) -> Option<AgentStatus>;
+    
+    pub async fn terminate_agent(&self, agent_id: AgentId) -> Result<(), AgentError>;
+}
+```
+
+**Key Deliverables:**
+- [ ] AgentManager service
+- [ ] Agent type registry
+- [ ] Process lifecycle management
+- [ ] Event streaming to frontend
+- [ ] Session persistence
+- [ ] Cost tracking per agent
+
+---
+
 ## Technical Stack Recommendations
 
 ### Frontend
