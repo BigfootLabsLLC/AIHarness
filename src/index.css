@@ -102,6 +102,19 @@
     @apply flex items-center gap-3;
   }
 
+  .toolbar-button {
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #ffffff;
+  }
+
+  .toolbar-button:disabled {
+    opacity: 0.4;
+  }
+
   .ghost-pill {
     @apply text-sm font-semibold px-4 py-2 rounded-full transition;
     background: transparent;
@@ -126,7 +139,7 @@
 
   .app-body {
     display: grid;
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 52px 1fr;
     gap: 6px;
     padding: 8px;
   }
@@ -147,8 +160,8 @@
 
   .project-tab {
     @apply text-[11px] font-semibold transition;
-    width: 72px;
-    height: 90px;
+    width: 48px;
+    height: 72px;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     text-align: center;
@@ -166,7 +179,7 @@
 
   .project-tab.add {
     font-size: 18px;
-    height: 48px;
+    height: 40px;
   }
 
   .workspace {
@@ -238,6 +251,136 @@
     gap: 4px;
   }
 
+  .file-browser {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .path-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+
+  .path-action {
+    border: 1px solid var(--border-soft);
+    background: #ffffff;
+    border-radius: 4px;
+    font-size: 11px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .path-action:disabled {
+    opacity: 0.4;
+  }
+
+  .path-text {
+    font-size: 11px;
+    color: var(--ink-700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: var(--bone-50);
+    border: 1px solid transparent;
+  }
+
+  .file-row:hover {
+    border-color: var(--border-soft);
+  }
+
+  .file-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    text-align: left;
+  }
+
+  .file-icon {
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+
+  .file-name {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .file-action {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-500);
+    border: 1px solid var(--border-soft);
+    background: #ffffff;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .note-input {
+    display: flex;
+    gap: 6px;
+  }
+
+  .note-input input {
+    flex: 1;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+
+  .note-input button {
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    background: #ffffff;
+  }
+
+  .note-row {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 4px 6px;
+    background: #ffffff;
+  }
+
+  .note-row textarea {
+    flex: 1;
+    min-height: 48px;
+    resize: vertical;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+
+  .note-row button {
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: #ffffff;
+  }
+
   .list-row,
   .todo-row {
     display: flex;
@@ -276,14 +419,50 @@
     color: var(--ink-500);
   }
 
-  .tree-row {
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: var(--bone-50);
+  .tree-view {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .tree-row.muted {
+  .tree-root {
+    font-size: 11px;
     color: var(--ink-500);
+    padding: 2px 4px;
+  }
+
+  .tree-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: 4px;
+    background: var(--bone-50);
+    border: 1px solid transparent;
+  }
+
+  .tree-row:hover {
+    border-color: var(--border-soft);
+  }
+
+  .tree-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-align: left;
+    flex: 1;
+  }
+
+  .tree-icon {
+    width: 12px;
+    color: var(--ink-500);
+    font-size: 11px;
+  }
+
+  .tree-name {
+    font-size: 12px;
+    font-weight: 500;
   }
 
   .todo-row {
@@ -495,6 +674,12 @@
     color: var(--ink-500);
   }
 
+  .field-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
   .field-input {
     border: 1px solid var(--border-soft);
     border-radius: 4px;
@@ -502,6 +687,7 @@
     font-size: 13px;
     background: #ffffff;
     color: var(--ink-900);
+    flex: 1;
   }
 
   .field-error {

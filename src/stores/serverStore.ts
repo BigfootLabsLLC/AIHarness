@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { ServerStatusState, ServerStatus, ToolCall, ContextFile, RawLog, TodoItem, ProjectInfo } from '../types';
+import type { ServerStatusState, ServerStatus, ToolCall, ContextFile, RawLog, TodoItem, ProjectInfo, DirectoryListing, ContextNote, BuildCommand } from '../types';
 
 interface ServerState {
   // Server status
@@ -12,8 +12,10 @@ interface ServerState {
   // Data
   toolCalls: ToolCall[];
   contextFiles: ContextFile[];
+  contextNotes: ContextNote[];
   rawLogs: RawLog[];
   todos: TodoItem[];
+  buildCommands: BuildCommand[];
   projects: ProjectInfo[];
   isLoading: boolean;
   
@@ -23,13 +25,26 @@ interface ServerState {
   startServer: () => Promise<void>;
   stopServer: () => Promise<void>;
   refreshStatus: () => Promise<void>;
-  executeTool: (name: string, args: Record<string, unknown>) => Promise<string>;
+  executeTool: (name: string, args: Record<string, unknown>, projectId?: string) => Promise<string>;
   loadContextFiles: () => Promise<void>;
   loadContextFilesForProject: (projectId: string) => Promise<void>;
-  addContextFile: (path: string) => Promise<void>;
-  removeContextFile: (id: string, path: string) => Promise<void>;
+  loadContextNotes: (projectId: string) => Promise<void>;
+  addContextNote: (projectId: string, content: string, position?: number) => Promise<void>;
+  updateContextNote: (projectId: string, id: string, content: string) => Promise<void>;
+  removeContextNote: (projectId: string, id: string) => Promise<void>;
+  moveContextNote: (projectId: string, id: string, position: number) => Promise<void>;
+  addContextFile: (projectId: string, path: string) => Promise<void>;
+  removeContextFile: (projectId: string, id: string, path: string) => Promise<void>;
   listProjects: () => Promise<void>;
-  createProject: (name: string, rootPath: string) => Promise<ProjectInfo | null>;
+  createProject: (name: string, rootPath: string) => Promise<{ project: ProjectInfo | null; error?: string }>;
+  listProjectDirectory: (projectId: string, subPath?: string) => Promise<DirectoryListing | null>;
+  listDirectory: (path: string) => Promise<DirectoryListing | null>;
+  loadBuildCommands: (projectId: string) => Promise<void>;
+  addBuildCommand: (projectId: string, name: string, command: string, workingDir?: string) => Promise<void>;
+  removeBuildCommand: (projectId: string, id: string) => Promise<void>;
+  runBuildCommand: (projectId: string, id: string) => Promise<string | null>;
+  setDefaultBuildCommand: (projectId: string, id: string) => Promise<void>;
+  getDefaultBuildCommand: (projectId: string) => Promise<BuildCommand | null>;
   loadTodos: (projectId: string) => Promise<void>;
   addTodo: (projectId: string, title: string, description?: string) => Promise<void>;
   setTodoCompleted: (projectId: string, id: string, completed: boolean) => Promise<void>;
@@ -46,8 +61,10 @@ export const useServerStore = create<ServerState>((set, get) => ({
   error: null,
   toolCalls: [],
   contextFiles: [],
+  contextNotes: [],
   rawLogs: [],
   todos: [],
+  buildCommands: [],
   projects: [],
   isLoading: false,
   
@@ -147,10 +164,11 @@ export const useServerStore = create<ServerState>((set, get) => ({
   },
   
   // Execute a tool directly
-  executeTool: async (name: string, args: Record<string, unknown>) => {
+  executeTool: async (name: string, args: Record<string, unknown>, projectId?: string) => {
     const result = await invoke<string>('execute_tool', {
       tool_name: name,
-      arguments: args
+      arguments: args,
+      project_id: projectId ?? null,
     });
     return result;
   },
@@ -201,13 +219,126 @@ export const useServerStore = create<ServerState>((set, get) => ({
       console.error('Failed to load context files:', error);
     }
   },
+
+  loadContextNotes: async (projectId: string) => {
+    try {
+      const notes = await invoke<ContextNote[]>('list_context_notes', { project_id: projectId });
+      const sorted = [...notes].sort((a, b) => a.position - b.position);
+      set({ contextNotes: sorted });
+    } catch (error) {
+      console.error('Failed to load context notes:', error);
+    }
+  },
+
+  loadBuildCommands: async (projectId: string) => {
+    try {
+      const commands = await invoke<BuildCommand[]>('list_build_commands', { project_id: projectId });
+      set({ buildCommands: commands });
+    } catch (error) {
+      console.error('Failed to load build commands:', error);
+    }
+  },
+
+  addBuildCommand: async (projectId: string, name: string, command: string, workingDir?: string) => {
+    try {
+      await invoke<BuildCommand>('add_build_command', {
+        project_id: projectId,
+        name,
+        command,
+        working_dir: workingDir ?? null,
+      });
+      await get().loadBuildCommands(projectId);
+    } catch (error) {
+      console.error('Failed to add build command:', error);
+    }
+  },
+
+  removeBuildCommand: async (projectId: string, id: string) => {
+    try {
+      await invoke('remove_build_command', { project_id: projectId, id });
+      await get().loadBuildCommands(projectId);
+    } catch (error) {
+      console.error('Failed to remove build command:', error);
+    }
+  },
+
+  runBuildCommand: async (projectId: string, id: string) => {
+    try {
+      const output = await invoke<string>('run_build_command', { project_id: projectId, id });
+      return output;
+    } catch (error) {
+      console.error('Failed to run build command:', error);
+      return null;
+    }
+  },
+
+  setDefaultBuildCommand: async (projectId: string, id: string) => {
+    try {
+      await invoke('set_default_build_command', { project_id: projectId, id });
+      await get().loadBuildCommands(projectId);
+    } catch (error) {
+      console.error('Failed to set default build command:', error);
+    }
+  },
+
+  getDefaultBuildCommand: async (projectId: string) => {
+    try {
+      const command = await invoke<BuildCommand | null>('get_default_build_command', {
+        project_id: projectId,
+      });
+      return command;
+    } catch (error) {
+      console.error('Failed to get default build command:', error);
+      return null;
+    }
+  },
+
+  addContextNote: async (projectId: string, content: string, position?: number) => {
+    try {
+      await invoke<ContextNote>('add_context_note', {
+        project_id: projectId,
+        content,
+        position: position ?? null,
+      });
+      await get().loadContextNotes(projectId);
+    } catch (error) {
+      console.error('Failed to add context note:', error);
+    }
+  },
+
+  updateContextNote: async (projectId: string, id: string, content: string) => {
+    try {
+      await invoke('update_context_note', { project_id: projectId, id, content });
+      await get().loadContextNotes(projectId);
+    } catch (error) {
+      console.error('Failed to update context note:', error);
+    }
+  },
+
+  removeContextNote: async (projectId: string, id: string) => {
+    try {
+      await invoke('remove_context_note', { project_id: projectId, id });
+      await get().loadContextNotes(projectId);
+    } catch (error) {
+      console.error('Failed to remove context note:', error);
+    }
+  },
+
+  moveContextNote: async (projectId: string, id: string, position: number) => {
+    try {
+      await invoke('move_context_note', { project_id: projectId, id, position });
+      await get().loadContextNotes(projectId);
+    } catch (error) {
+      console.error('Failed to move context note:', error);
+    }
+  },
   
   // Add a context file
-  addContextFile: async (path: string) => {
+  addContextFile: async (projectId: string, path: string) => {
     try {
       const file = await invoke<{id: string, path: string, name: string, added_at: string, last_read_at?: string}>(
         'add_context_file',
-        { path },
+        { project_id: projectId, path },
       );
       
       const newFile: ContextFile = {
@@ -227,9 +358,9 @@ export const useServerStore = create<ServerState>((set, get) => ({
   },
   
   // Remove a context file
-  removeContextFile: async (id: string, path: string) => {
+  removeContextFile: async (projectId: string, id: string, path: string) => {
     try {
-      await invoke('remove_context_file', { path });
+      await invoke('remove_context_file', { project_id: projectId, path });
       
       set((state) => ({
         contextFiles: state.contextFiles.filter((f) => f.id !== id)
@@ -257,11 +388,34 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   createProject: async (name: string, rootPath: string) => {
     try {
-      const project = await invoke<ProjectInfo>('create_project', { name, root_path: rootPath });
+      const project = await invoke<ProjectInfo>('create_project', { name, rootPath });
       await get().listProjects();
-      return project;
+      return { project };
     } catch (error) {
       console.error('Failed to create project:', error);
+      return { project: null, error: String(error) };
+    }
+  },
+
+  listProjectDirectory: async (projectId: string, subPath?: string) => {
+    try {
+      const listing = await invoke<DirectoryListing>('list_project_directory', {
+        project_id: projectId,
+        sub_path: subPath ?? null,
+      });
+      return listing;
+    } catch (error) {
+      console.error('Failed to list project directory:', error);
+      return null;
+    }
+  },
+
+  listDirectory: async (path: string) => {
+    try {
+      const listing = await invoke<DirectoryListing>('list_directory', { path });
+      return listing;
+    } catch (error) {
+      console.error('Failed to list directory:', error);
       return null;
     }
   },

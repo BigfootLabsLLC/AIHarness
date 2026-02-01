@@ -51,6 +51,39 @@ export interface ContextFile {
   lastReadAt?: string;
 }
 
+/** Context note */
+export interface ContextNote {
+  id: string;
+  content: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Build command */
+export interface BuildCommand {
+  id: string;
+  name: string;
+  command: string;
+  working_dir?: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+/** Directory entry */
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+}
+
+/** Directory listing */
+export interface DirectoryListing {
+  path: string;
+  parent_path?: string | null;
+  entries: DirectoryEntry[];
+}
+
 /** Tool definition */
 export interface ToolDefinition {
   name: string;

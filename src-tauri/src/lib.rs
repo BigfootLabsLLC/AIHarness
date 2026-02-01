@@ -8,7 +8,9 @@
 #![warn(clippy::all, clippy::pedantic)]
 
 pub mod app_state;
+pub mod build_commands;
 pub mod context;
+pub mod context_notes;
 pub mod error;
 pub mod http_server;
 pub mod mcp_proxy;
@@ -61,6 +63,16 @@ pub struct ContextFileInfo {
     pub last_read_at: Option<String>,
 }
 
+/// Context note info
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextNoteInfo {
+    pub id: String,
+    pub content: String,
+    pub position: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// Project info for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectInfo {
@@ -70,6 +82,33 @@ pub struct ProjectInfo {
     pub db_path: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+/// Directory entry info for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DirectoryEntryInfo {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+/// Directory listing for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DirectoryListingInfo {
+    pub path: String,
+    pub parent_path: Option<String>,
+    pub entries: Vec<DirectoryEntryInfo>,
+}
+
+/// Build command info
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildCommandInfo {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+    pub working_dir: Option<String>,
+    pub is_default: bool,
+    pub created_at: String,
 }
 
 /// Todo item for frontend
@@ -539,6 +578,414 @@ async fn list_context_files(
     Ok(infos)
 }
 
+/// List context notes
+#[tauri::command]
+async fn list_context_notes(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+) -> Result<Vec<ContextNoteInfo>, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.context_note_store.read().await;
+    let notes = store.list().await.map_err(|e| e.to_string())?;
+    Ok(notes.into_iter().map(context_note_info_from).collect())
+}
+
+/// Add context note
+#[tauri::command]
+async fn add_context_note(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    content: String,
+    position: Option<i64>,
+) -> Result<ContextNoteInfo, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.context_note_store.read().await;
+    let note = store
+        .add(&content, position)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(context_note_info_from(note))
+}
+
+/// Update context note
+#[tauri::command]
+async fn update_context_note(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    id: String,
+    content: String,
+) -> Result<(), String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.context_note_store.read().await;
+    store.update(&id, &content).await.map_err(|e| e.to_string())
+}
+
+/// Remove context note
+#[tauri::command]
+async fn remove_context_note(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    id: String,
+) -> Result<(), String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.context_note_store.read().await;
+    store.remove(&id).await.map_err(|e| e.to_string())
+}
+
+/// Move context note
+#[tauri::command]
+async fn move_context_note(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    id: String,
+    position: i64,
+) -> Result<(), String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.context_note_store.read().await;
+    store.move_to(&id, position).await.map_err(|e| e.to_string())
+}
+
+fn context_note_info_from(note: crate::context_notes::ContextNote) -> ContextNoteInfo {
+    ContextNoteInfo {
+        id: note.id,
+        content: note.content,
+        position: note.position,
+        created_at: note.created_at.to_rfc3339(),
+        updated_at: note.updated_at.to_rfc3339(),
+    }
+}
+
+/// List build commands
+#[tauri::command]
+async fn list_build_commands(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+) -> Result<Vec<BuildCommandInfo>, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.build_command_store.read().await;
+    let commands = store.list().await.map_err(|e| e.to_string())?;
+    Ok(commands
+        .into_iter()
+        .map(build_command_info_from)
+        .collect())
+}
+
+/// Add build command
+#[tauri::command]
+async fn add_build_command(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    name: String,
+    command: String,
+    working_dir: Option<String>,
+) -> Result<BuildCommandInfo, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.build_command_store.read().await;
+    let command = store
+        .add(&name, &command, working_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(build_command_info_from(command))
+}
+
+/// Remove build command
+#[tauri::command]
+async fn remove_build_command(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    id: String,
+) -> Result<(), String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.build_command_store.read().await;
+    store.remove(&id).await.map_err(|e| e.to_string())
+}
+
+/// Run build command
+#[tauri::command]
+async fn run_build_command(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    id: String,
+) -> Result<String, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let (command, root_path) = {
+        let state_read = state.read().await;
+        let project = state_read
+            .project_registry
+            .get_project(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Unknown project: {}", project_id))?;
+        let store = state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        let store = store.build_command_store.read().await;
+        let command = store
+            .get(&id)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Build command not found".to_string())?;
+        let working_dir = command
+            .working_dir
+            .clone()
+            .unwrap_or_else(|| project.root_path.clone());
+        (command.command, working_dir)
+    };
+
+    run_shell_command(&command, &root_path).await
+}
+
+/// Set default build command
+#[tauri::command]
+async fn set_default_build_command(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    id: String,
+) -> Result<(), String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.build_command_store.read().await;
+    store.set_default(&id).await.map_err(|e| e.to_string())
+}
+
+/// Get default build command
+#[tauri::command]
+async fn get_default_build_command(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+) -> Result<Option<BuildCommandInfo>, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.build_command_store.read().await;
+    let command = store.get_default().await.map_err(|e| e.to_string())?;
+    Ok(command.map(build_command_info_from))
+}
+
+fn build_command_info_from(command: crate::build_commands::BuildCommand) -> BuildCommandInfo {
+    BuildCommandInfo {
+        id: command.id,
+        name: command.name,
+        command: command.command,
+        working_dir: command.working_dir,
+        is_default: command.is_default,
+        created_at: command.created_at.to_rfc3339(),
+    }
+}
+
+pub(crate) async fn run_shell_command(command: &str, working_dir: &str) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut cmd = tokio::process::Command::new("cmd");
+        cmd.arg("/C").arg(command);
+        cmd
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.arg("-lc").arg(command);
+        cmd
+    };
+
+    cmd.current_dir(working_dir);
+
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run command: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    let combined = if stderr.is_empty() {
+        stdout.clone()
+    } else if stdout.is_empty() {
+        stderr.clone()
+    } else {
+        format!("{}\n{}", stdout, stderr)
+    };
+
+    if output.status.success() {
+        Ok(combined)
+    } else {
+        Err(format!("Command failed ({}): {}", output.status, combined))
+    }
+}
+
+/// List a project's directory contents (relative to project root).
+#[tauri::command]
+async fn list_project_directory(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    project_id: Option<String>,
+    sub_path: Option<String>,
+) -> Result<DirectoryListingInfo, String> {
+    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project = {
+        let state_read = state.read().await;
+        state_read
+            .project_registry
+            .get_project(&project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    }
+    .ok_or_else(|| format!("Unknown project: {}", project_id))?;
+
+    let root = std::path::PathBuf::from(&project.root_path);
+    let requested = sub_path.unwrap_or_else(|| "".to_string());
+    let requested_path = root.join(requested);
+    let canonical = std::fs::canonicalize(&requested_path)
+        .map_err(|e| format!("Invalid path: {}", e))?;
+
+    if !canonical.starts_with(&root) {
+        return Err("Path is outside project root".to_string());
+    }
+
+    list_directory_impl(&canonical, Some(&root)).await
+}
+
+/// List any absolute directory contents.
+#[tauri::command]
+async fn list_directory(path: String) -> Result<DirectoryListingInfo, String> {
+    let requested = std::path::PathBuf::from(path);
+    let canonical = std::fs::canonicalize(&requested)
+        .map_err(|e| format!("Invalid path: {}", e))?;
+    if !canonical.is_absolute() {
+        return Err("Path must be absolute".to_string());
+    }
+    list_directory_impl(&canonical, None).await
+}
+
+async fn list_directory_impl(
+    path: &std::path::Path,
+    root: Option<&std::path::Path>,
+) -> Result<DirectoryListingInfo, String> {
+    if !path.is_dir() {
+        return Err("Path is not a directory".to_string());
+    }
+
+    let mut entries = tokio::fs::read_dir(path)
+        .await
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    let mut dirs: Vec<DirectoryEntryInfo> = Vec::new();
+    let mut files: Vec<DirectoryEntryInfo> = Vec::new();
+
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|e| format!("Failed to read directory: {}", e))?
+    {
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let entry_path = entry.path();
+        let metadata = entry
+            .metadata()
+            .await
+            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+        let is_dir = metadata.is_dir();
+        let entry_info = DirectoryEntryInfo {
+            name: file_name,
+            path: entry_path.to_string_lossy().to_string(),
+            is_dir,
+        };
+
+        if is_dir {
+            dirs.push(entry_info);
+        } else {
+            files.push(entry_info);
+        }
+    }
+
+    dirs.sort_by(|a, b| a.name.cmp(&b.name));
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut entries = Vec::with_capacity(dirs.len() + files.len());
+    entries.extend(dirs);
+    entries.extend(files);
+
+    let parent_path = path
+        .parent()
+        .and_then(|parent| match root {
+            Some(root) if parent.starts_with(root) => Some(parent),
+            Some(_) => None,
+            None => Some(parent),
+        })
+        .map(|parent| parent.to_string_lossy().to_string());
+
+    Ok(DirectoryListingInfo {
+        path: path.to_string_lossy().to_string(),
+        parent_path,
+        entries,
+    })
+}
+
 /// Run the Tauri application
 pub fn run() {
     tracing_subscriber::fmt::init();
@@ -648,6 +1095,7 @@ pub fn run() {
             
             Ok(())
         })
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             start_server,
             stop_server,
@@ -659,6 +1107,19 @@ pub fn run() {
             add_context_file,
             remove_context_file,
             list_context_files,
+            list_context_notes,
+            add_context_note,
+            update_context_note,
+            remove_context_note,
+            move_context_note,
+            list_project_directory,
+            list_directory,
+            list_build_commands,
+            add_build_command,
+            remove_build_command,
+            run_build_command,
+            set_default_build_command,
+            get_default_build_command,
             list_todos,
             add_todo,
             set_todo_completed,

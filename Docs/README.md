@@ -90,6 +90,47 @@ JSON-RPC over stdio to the running app's HTTP MCP endpoint.
 AIH_PORT=8787 aiharness --mcp-stdio-proxy
 ```
 
+## MCP Bridge: Set Project Build Command
+
+When an AI needs to register a build command, use the MCP HTTP endpoint
+with `tools/call`. Example (project id `default`):
+
+```bash
+curl -s http://127.0.0.1:8787/mcp \
+  -H "content-type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"tools/call",
+    "params":{
+      "name":"build_add_command",
+      "arguments":{
+        "name":"Build App",
+        "command":"npm run build:app",
+        "working_dir":"/Users/danbaker/Projects/AIHarness/AIHarness"
+      },
+      "project_id":"default"
+    }
+  }'
+```
+
+Then (optional) set the default build command:
+
+```bash
+curl -s http://127.0.0.1:8787/mcp \
+  -H "content-type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":2,
+    "method":"tools/call",
+    "params":{
+      "name":"build_set_default",
+      "arguments":{"id":"<id-from-previous-response>"},
+      "project_id":"default"
+    }
+  }'
+```
+
 ## License
 
 MIT

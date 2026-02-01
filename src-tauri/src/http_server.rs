@@ -69,6 +69,7 @@ async fn list_tools(State(state): State<HttpState>) -> Json<serde_json::Value> {
     let state = state.read().await;
     let mut tools = state.tool_registry.list();
     tools.extend(todo_tool_definitions());
+    tools.extend(build_tool_definitions());
     Json(json!({ "tools": map_tools(&tools, "input_schema") }))
 }
 
@@ -205,6 +206,8 @@ async fn execute_tool_call(
 
     let result = if is_todo_tool(tool_name) {
         execute_todo_tool_call(state.clone(), tool_name, arguments.clone(), &project_id).await
+    } else if is_build_tool(tool_name) {
+        execute_build_tool_call(state.clone(), tool_name, arguments.clone(), &project_id).await
     } else {
         let state_read = state.read().await;
         let tool = match state_read.tool_registry.get(tool_name) {
@@ -380,6 +383,7 @@ async fn handle_mcp_tools_list(
     let state = state.read().await;
     let mut tools = state.tool_registry.list();
     tools.extend(todo_tool_definitions());
+    tools.extend(build_tool_definitions());
     let tools = map_tools(&tools, "inputSchema");
     JsonRpcResponse {
         jsonrpc: "2.0".to_string(),
@@ -602,6 +606,210 @@ fn is_todo_tool(tool_name: &str) -> bool {
         tool_name,
         "todo_add" | "todo_remove" | "todo_check" | "todo_list" | "todo_get_next" | "todo_insert" | "todo_move"
     )
+}
+
+fn build_tool_definitions() -> Vec<ToolDefinition> {
+    vec![
+        ToolDefinition {
+            name: "build_add_command".to_string(),
+            description: "Add a build command to the project.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "command": { "type": "string" },
+                    "working_dir": { "type": "string" }
+                },
+                "required": ["name", "command"]
+            }),
+        },
+        ToolDefinition {
+            name: "build_remove_command".to_string(),
+            description: "Remove a build command by id.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" }
+                },
+                "required": ["id"]
+            }),
+        },
+        ToolDefinition {
+            name: "build_list_commands".to_string(),
+            description: "List build commands for the project.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {}
+            }),
+        },
+        ToolDefinition {
+            name: "build_run_command".to_string(),
+            description: "Run a build command by id.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" }
+                },
+                "required": ["id"]
+            }),
+        },
+        ToolDefinition {
+            name: "build_set_default".to_string(),
+            description: "Set the default build command by id.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" }
+                },
+                "required": ["id"]
+            }),
+        },
+        ToolDefinition {
+            name: "build_get_default".to_string(),
+            description: "Get the default build command.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {}
+            }),
+        },
+    ]
+}
+
+fn is_build_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "build_add_command"
+            | "build_remove_command"
+            | "build_list_commands"
+            | "build_run_command"
+            | "build_set_default"
+            | "build_get_default"
+    )
+}
+
+async fn execute_build_tool_call(
+    state: HttpState,
+    tool_name: &str,
+    arguments: serde_json::Value,
+    project_id: &str,
+) -> Result<String, String> {
+    match tool_name {
+        "build_add_command" => {
+            let name = arguments
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing name".to_string())?;
+            let command = arguments
+                .get("command")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing command".to_string())?;
+            let working_dir = arguments
+                .get("working_dir")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let store = {
+                let state_read = state.read().await;
+                state_read
+                    .get_project_store(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+            };
+            let store = store.build_command_store.read().await;
+            let command = store
+                .add(&name, &command, working_dir)
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(serde_json::to_string(&command).unwrap_or_default())
+        }
+        "build_remove_command" => {
+            let id = arguments
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing id".to_string())?;
+            let store = {
+                let state_read = state.read().await;
+                state_read
+                    .get_project_store(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+            };
+            let store = store.build_command_store.read().await;
+            store.remove(&id).await.map_err(|e| e.to_string())?;
+            Ok("ok".to_string())
+        }
+        "build_list_commands" => {
+            let store = {
+                let state_read = state.read().await;
+                state_read
+                    .get_project_store(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+            };
+            let store = store.build_command_store.read().await;
+            let list = store.list().await.map_err(|e| e.to_string())?;
+            Ok(serde_json::to_string(&list).unwrap_or_default())
+        }
+        "build_run_command" => {
+            let id = arguments
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing id".to_string())?;
+            let (command, root_path) = {
+                let state_read = state.read().await;
+                let project = state_read
+                    .project_registry
+                    .get_project(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Project not found".to_string())?;
+                let store = state_read
+                    .get_project_store(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let store = store.build_command_store.read().await;
+                let command = store
+                    .get(&id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Build command not found".to_string())?;
+                let working_dir = command
+                    .working_dir
+                    .clone()
+                    .unwrap_or_else(|| project.root_path.clone());
+                (command.command, working_dir)
+            };
+            crate::run_shell_command(&command, &root_path).await
+        }
+        "build_set_default" => {
+            let id = arguments
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing id".to_string())?;
+            let store = {
+                let state_read = state.read().await;
+                state_read
+                    .get_project_store(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+            };
+            let store = store.build_command_store.read().await;
+            store.set_default(&id).await.map_err(|e| e.to_string())?;
+            Ok("ok".to_string())
+        }
+        "build_get_default" => {
+            let store = {
+                let state_read = state.read().await;
+                state_read
+                    .get_project_store(project_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+            };
+            let store = store.build_command_store.read().await;
+            let command = store.get_default().await.map_err(|e| e.to_string())?;
+            Ok(serde_json::to_string(&command).unwrap_or_default())
+        }
+        _ => Err(format!("Unknown build tool: {}", tool_name)),
+    }
 }
 
 async fn execute_todo_tool_call(

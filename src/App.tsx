@@ -1,20 +1,64 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { ToolCall } from './types';
+import type { BuildCommand, DirectoryEntry, DirectoryListing, ToolCall } from './types';
 import { useServerStore } from './stores/serverStore';
+import { open } from '@tauri-apps/plugin-dialog';
 
 function App() {
-  const { status, port, toolCalls, contextFiles, todos, projects, loadToolHistory, loadContextFilesForProject, loadTodos, createProject } = useServerStore();
+  const {
+    status,
+    port,
+    toolCalls,
+    contextFiles,
+    contextNotes,
+    todos,
+    buildCommands,
+    projects,
+    loadToolHistory,
+    loadContextFilesForProject,
+    loadContextNotes,
+    loadTodos,
+    createProject,
+    listProjectDirectory,
+    listDirectory,
+    addContextFile,
+    addContextNote,
+    updateContextNote,
+    removeContextNote,
+    loadBuildCommands,
+    addBuildCommand,
+    removeBuildCommand,
+    runBuildCommand,
+    setDefaultBuildCommand,
+    getDefaultBuildCommand,
+    executeTool,
+  } = useServerStore();
   const [activeProject, setActiveProject] = useState('default');
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectDraft, setProjectDraft] = useState({ name: '', rootPath: '' });
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [filePanelTab, setFilePanelTab] = useState<'project' | 'system'>('project');
+  const [contextPanelTab, setContextPanelTab] = useState<'context' | 'notes'>('context');
+  const [projectTree, setProjectTree] = useState<Record<string, DirectoryListing>>({});
+  const [projectExpanded, setProjectExpanded] = useState<Record<string, boolean>>({});
+  const [systemTree, setSystemTree] = useState<Record<string, DirectoryListing>>({});
+  const [systemExpanded, setSystemExpanded] = useState<Record<string, boolean>>({});
+  const [systemRoot, setSystemRoot] = useState('');
+  const [newNote, setNewNote] = useState('');
+  const [newBuildName, setNewBuildName] = useState('');
+  const [newBuildCommand, setNewBuildCommand] = useState('');
+  const [newBuildDir, setNewBuildDir] = useState('');
+  const [defaultBuild, setDefaultBuild] = useState<BuildCommand | null>(null);
   const filteredToolCalls = useMemo(
     () => toolCalls.filter((call) => call.project_id === activeProject),
     [toolCalls, activeProject],
   );
   const recentToolCalls = useMemo(() => filteredToolCalls.slice(0, 6), [filteredToolCalls]);
   const recentContext = useMemo(() => contextFiles.slice(0, 6), [contextFiles]);
+  const activeProjectInfo = useMemo(
+    () => projects.find((project) => project.id === activeProject) ?? null,
+    [projects, activeProject],
+  );
   const [activeTab, setActiveTab] = useState<MainTab>({
     id: 'workspace',
     title: 'Workspace',
@@ -37,8 +81,19 @@ function App() {
   useEffect(() => {
     loadToolHistory(activeProject);
     loadContextFilesForProject(activeProject);
+    loadContextNotes(activeProject);
     loadTodos(activeProject);
-  }, [activeProject, loadToolHistory, loadContextFilesForProject, loadTodos]);
+    loadBuildCommands(activeProject);
+    getDefaultBuildCommand(activeProject).then(setDefaultBuild);
+  }, [
+    activeProject,
+    loadToolHistory,
+    loadContextFilesForProject,
+    loadContextNotes,
+    loadTodos,
+    loadBuildCommands,
+    getDefaultBuildCommand,
+  ]);
 
   useEffect(() => {
     if (toolCalls.length === 0) return;
@@ -47,6 +102,91 @@ function App() {
       loadTodos(activeProject);
     }
   }, [toolCalls, activeProject, loadTodos]);
+
+  useEffect(() => {
+    if (!activeProjectInfo) return;
+    const root = activeProjectInfo.root_path;
+    setProjectTree({});
+    setProjectExpanded({ [root]: true });
+    listProjectDirectory(activeProject, '').then((listing) => {
+      if (listing) {
+        setProjectTree({ [listing.path]: listing });
+      }
+    });
+  }, [activeProjectInfo, activeProject, listProjectDirectory]);
+
+  useEffect(() => {
+    if (!systemRoot && activeProjectInfo?.root_path) {
+      setSystemRoot(activeProjectInfo.root_path);
+    }
+  }, [systemRoot, activeProjectInfo]);
+
+  useEffect(() => {
+    if (!systemRoot) return;
+    setSystemTree({});
+    setSystemExpanded({ [systemRoot]: true });
+    listDirectory(systemRoot).then((listing) => {
+      if (listing) {
+        setSystemTree({ [listing.path]: listing });
+      }
+    });
+  }, [systemRoot, listDirectory]);
+
+  useEffect(() => {
+    const activeDefault = buildCommands.find((cmd) => cmd.is_default) ?? null;
+    if (activeDefault) {
+      setDefaultBuild(activeDefault);
+      return;
+    }
+    if (buildCommands.length > 0 && !defaultBuild) {
+      setDefaultBuild(buildCommands[0]);
+    }
+  }, [buildCommands, defaultBuild]);
+
+  const openFile = async (entry: DirectoryEntry) => {
+    const content = await executeTool('read_file', { path: entry.path }, activeProject);
+    const nextTab: MainTab = {
+      id: `file-${entry.path}`,
+      title: entry.name,
+      kind: 'file',
+      payload: {
+        path: entry.path,
+        content,
+      },
+    };
+    setTabs((prev) => addOrReplaceTab(prev, nextTab));
+    setActiveTab(nextTab);
+  };
+
+  const toggleProjectEntry = async (entry: DirectoryEntry) => {
+    if (!activeProjectInfo) return;
+    if (!entry.is_dir) {
+      void openFile(entry);
+      return;
+    }
+    setProjectExpanded((prev) => ({ ...prev, [entry.path]: !prev[entry.path] }));
+    if (!projectTree[entry.path]) {
+      const subPath = relativeSubPath(activeProjectInfo.root_path, entry.path);
+      const listing = await listProjectDirectory(activeProject, subPath);
+      if (listing) {
+        setProjectTree((prev) => ({ ...prev, [listing.path]: listing }));
+      }
+    }
+  };
+
+  const toggleSystemEntry = async (entry: DirectoryEntry) => {
+    if (!entry.is_dir) {
+      void openFile(entry);
+      return;
+    }
+    setSystemExpanded((prev) => ({ ...prev, [entry.path]: !prev[entry.path] }));
+    if (!systemTree[entry.path]) {
+      const listing = await listDirectory(entry.path);
+      if (listing) {
+        setSystemTree((prev) => ({ ...prev, [listing.path]: listing }));
+      }
+    }
+  };
 
   const openProjectModal = () => {
     setProjectDraft({ name: '', rootPath: '' });
@@ -68,12 +208,12 @@ function App() {
       setProjectError('Project folder path is required.');
       return;
     }
-    const project = await createProject(projectDraft.name.trim(), projectDraft.rootPath.trim());
-    if (!project) {
-      setProjectError('Failed to create project.');
+    const result = await createProject(projectDraft.name.trim(), projectDraft.rootPath.trim());
+    if (!result.project) {
+      setProjectError(result.error ?? 'Failed to create project.');
       return;
     }
-    setActiveProject(project.id);
+    setActiveProject(result.project.id);
     closeProjectModal();
   };
 
@@ -94,7 +234,31 @@ function App() {
             <span className="status-port">:{port}</span>
           </div>
         </div>
-        <div className="app-topbar__actions" />
+        <div className="app-topbar__actions">
+          <button
+            className="toolbar-button"
+            disabled={!defaultBuild}
+            onClick={async () => {
+              if (!defaultBuild) return;
+              const output = await runBuildCommand(activeProject, defaultBuild.id);
+              if (!output) return;
+              const nextTab: MainTab = {
+                id: `build-${defaultBuild.id}-${Date.now()}`,
+                title: defaultBuild.name,
+                kind: 'build',
+                payload: {
+                  name: defaultBuild.name,
+                  command: defaultBuild.command,
+                  output,
+                },
+              };
+              setTabs((prev) => addOrReplaceTab(prev, nextTab));
+              setActiveTab(nextTab);
+            }}
+          >
+            Build
+          </button>
+        </div>
       </header>
 
       <div className="app-body">
@@ -147,9 +311,30 @@ function App() {
               </div>
             </PanelShell>
 
-            <PanelShell title="File System Tree" tabs={['Files', 'Tags']}>
+            <PanelShell
+              title="File System Tree"
+              tabs={['Project', 'System']}
+              activeTab={filePanelTab === 'project' ? 'Project' : 'System'}
+              onTabChange={(tab) => setFilePanelTab(tab === 'Project' ? 'project' : 'system')}
+            >
               <div className="stack">
-                <div className="empty-state">No files loaded.</div>
+                {filePanelTab === 'project' ? (
+                  <FileTree
+                    rootPath={activeProjectInfo?.root_path ?? ''}
+                    listings={projectTree}
+                    expanded={projectExpanded}
+                    onToggle={toggleProjectEntry}
+                    onAddToContext={(entry) => addContextFile(activeProject, entry.path)}
+                  />
+                ) : (
+                  <FileTree
+                    rootPath={systemRoot}
+                    listings={systemTree}
+                    expanded={systemExpanded}
+                    onToggle={toggleSystemEntry}
+                    onAddToContext={(entry) => addContextFile(activeProject, entry.path)}
+                  />
+                )}
               </div>
             </PanelShell>
 
@@ -176,12 +361,110 @@ function App() {
                 )}
               </div>
             </PanelShell>
+
+            <PanelShell title="Build" tabs={['Commands']}>
+              <div className="stack">
+                <div className="note-input">
+                  <input
+                    value={newBuildName}
+                    onChange={(event) => setNewBuildName(event.target.value)}
+                    placeholder="Build name"
+                  />
+                </div>
+                <div className="note-input">
+                  <input
+                    value={newBuildCommand}
+                    onChange={(event) => setNewBuildCommand(event.target.value)}
+                    placeholder="npm run build:app"
+                  />
+                  <input
+                    value={newBuildDir}
+                    onChange={(event) => setNewBuildDir(event.target.value)}
+                    placeholder="working dir (optional)"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!newBuildName.trim() || !newBuildCommand.trim()) return;
+                      void addBuildCommand(
+                        activeProject,
+                        newBuildName.trim(),
+                        newBuildCommand.trim(),
+                        newBuildDir.trim() || undefined,
+                      );
+                      setNewBuildName('');
+                      setNewBuildCommand('');
+                      setNewBuildDir('');
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+                {buildCommands.length === 0 ? (
+                  <div className="empty-state">No build commands yet.</div>
+                ) : (
+                  buildCommands.map((cmd) => (
+                    <div key={cmd.id} className="file-row">
+                      <div className="file-main">
+                        <div>
+                          <div className="row-title">
+                            {cmd.is_default ? '★ ' : ''}
+                            {cmd.name}
+                          </div>
+                          <div className="row-subtitle">{cmd.command}</div>
+                          {cmd.working_dir && <div className="row-subtitle">{cmd.working_dir}</div>}
+                        </div>
+                      </div>
+                      <button
+                        className="file-action"
+                        onClick={async () => {
+                          const output = await runBuildCommand(activeProject, cmd.id);
+                          if (!output) return;
+                          const nextTab: MainTab = {
+                            id: `build-${cmd.id}-${Date.now()}`,
+                            title: cmd.name,
+                            kind: 'build',
+                            payload: {
+                              name: cmd.name,
+                              command: cmd.command,
+                              output,
+                            },
+                          };
+                          setTabs((prev) => addOrReplaceTab(prev, nextTab));
+                          setActiveTab(nextTab);
+                        }}
+                      >
+                        Run
+                      </button>
+                      <button
+                        className="file-action"
+                        onClick={() => {
+                          void setDefaultBuildCommand(activeProject, cmd.id);
+                          setDefaultBuild(cmd);
+                        }}
+                      >
+                        Default
+                      </button>
+                      <button
+                        className="file-action"
+                        onClick={() => removeBuildCommand(activeProject, cmd.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </PanelShell>
           </section>
 
           <section className="workspace-center">
             <div className="main-canvas">
               {activeTab.kind === 'tool' ? (
-                <ToolCallDetail call={activeTab.payload} />
+                <ToolCallDetail call={activeTab.payload as ToolCall} />
+              ) : activeTab.kind === 'file' ? (
+                <FileDetail payload={activeTab.payload as FilePayload} />
+              ) : activeTab.kind === 'build' ? (
+                <BuildOutputDetail payload={activeTab.payload as BuildPayload} />
               ) : (
                 <div className="canvas-empty">
                   <div className="canvas-title">Main Canvas</div>
@@ -209,19 +492,61 @@ function App() {
               </div>
             </PanelShell>
 
-            <PanelShell title="Context Snapshot" tabs={['Context', 'Notes']}>
+            <PanelShell
+              title="Context Snapshot"
+              tabs={['Context', 'Notes']}
+              activeTab={contextPanelTab === 'context' ? 'Context' : 'Notes'}
+              onTabChange={(tab) => setContextPanelTab(tab === 'Context' ? 'context' : 'notes')}
+            >
               <div className="stack">
-                {recentContext.length === 0 ? (
-                  <div className="empty-state">No context files yet.</div>
-                ) : (
-                  recentContext.map((file) => (
-                    <div key={file.id} className="list-row">
-                      <div>
-                        <div className="row-title">{file.path.split('/').pop()}</div>
-                        <div className="row-subtitle">{file.path}</div>
+                {contextPanelTab === 'context' ? (
+                  recentContext.length === 0 ? (
+                    <div className="empty-state">No context files yet.</div>
+                  ) : (
+                    recentContext.map((file) => (
+                      <div key={file.id} className="list-row">
+                        <div>
+                          <div className="row-title">{file.path.split('/').pop()}</div>
+                          <div className="row-subtitle">{file.path}</div>
+                        </div>
                       </div>
+                    ))
+                  )
+                ) : (
+                  <div className="stack">
+                    <div className="note-input">
+                      <input
+                        value={newNote}
+                        onChange={(event) => setNewNote(event.target.value)}
+                        placeholder="Add context note..."
+                      />
+                      <button
+                        onClick={() => {
+                          if (!newNote.trim()) return;
+                          void addContextNote(activeProject, newNote.trim());
+                          setNewNote('');
+                        }}
+                      >
+                        Add
+                      </button>
                     </div>
-                  ))
+                    {contextNotes.length === 0 ? (
+                      <div className="empty-state">No notes yet.</div>
+                    ) : (
+                      contextNotes.map((note) => (
+                        <div key={note.id} className="note-row">
+                          <textarea
+                            defaultValue={note.content}
+                            onBlur={(event) => {
+                              const value = event.target.value.trim();
+                              updateContextNote(activeProject, note.id, value).catch(() => undefined);
+                            }}
+                          />
+                          <button onClick={() => removeContextNote(activeProject, note.id)}>Remove</button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
             </PanelShell>
@@ -256,10 +581,14 @@ function PanelShell({
   title,
   tabs,
   children,
+  onTabChange,
+  activeTab,
 }: {
   title: string;
   tabs: string[];
   children: ReactNode;
+  onTabChange?: (tab: string) => void;
+  activeTab?: string;
 }) {
   return (
     <div className="panel-shell">
@@ -268,7 +597,11 @@ function PanelShell({
           <div className="panel-title">{title}</div>
           <div className="panel-tabs">
             {tabs.map((tab, index) => (
-              <button key={tab} className={`panel-tab ${index === 0 ? 'active' : ''}`}>
+              <button
+                key={tab}
+                className={`panel-tab ${activeTab ? (tab === activeTab ? 'active' : '') : index === 0 ? 'active' : ''}`}
+                onClick={() => onTabChange?.(tab)}
+              >
                 {tab}
               </button>
             ))}
@@ -284,8 +617,8 @@ function PanelShell({
 type MainTab = {
   id: string;
   title: string;
-  kind: 'home' | 'tool';
-  payload?: ToolCall;
+  kind: 'home' | 'tool' | 'file' | 'build';
+  payload?: ToolCall | FilePayload | BuildPayload;
 };
 
 function tabFromToolCall(call: ToolCall): MainTab {
@@ -296,6 +629,17 @@ function tabFromToolCall(call: ToolCall): MainTab {
     payload: call,
   };
 }
+
+type FilePayload = {
+  path: string;
+  content: string;
+};
+
+type BuildPayload = {
+  name: string;
+  command: string;
+  output: string;
+};
 
 function addOrReplaceTab(existing: MainTab[], next: MainTab): MainTab[] {
   const hasTab = existing.some((tab) => tab.id === next.id);
@@ -331,6 +675,111 @@ function ToolCallDetail({ call }: { call?: ToolCall }) {
       </div>
     </div>
   );
+}
+
+function FileDetail({ payload }: { payload?: FilePayload }) {
+  if (!payload) {
+    return <div className="canvas-empty">No file selected.</div>;
+  }
+
+  return (
+    <div className="detail-card">
+      <div className="detail-header">
+        <div>
+          <div className="detail-title">{payload.path.split('/').pop()}</div>
+          <div className="detail-subtitle">{payload.path}</div>
+        </div>
+      </div>
+      <div className="detail-section">
+        <div className="detail-label">Content</div>
+        <pre className="detail-code">{payload.content}</pre>
+      </div>
+    </div>
+  );
+}
+
+function BuildOutputDetail({ payload }: { payload?: BuildPayload }) {
+  if (!payload) {
+    return <div className="canvas-empty">No build output.</div>;
+  }
+
+  return (
+    <div className="detail-card">
+      <div className="detail-header">
+        <div>
+          <div className="detail-title">{payload.name}</div>
+          <div className="detail-subtitle">{payload.command}</div>
+        </div>
+      </div>
+      <div className="detail-section">
+        <div className="detail-label">Output</div>
+        <pre className="detail-code">{payload.output}</pre>
+      </div>
+    </div>
+  );
+}
+
+function FileTree({
+  rootPath,
+  listings,
+  expanded,
+  onToggle,
+  onAddToContext,
+}: {
+  rootPath: string;
+  listings: Record<string, DirectoryListing>;
+  expanded: Record<string, boolean>;
+  onToggle: (entry: DirectoryEntry) => void;
+  onAddToContext: (entry: DirectoryEntry) => void;
+}) {
+  if (!rootPath) {
+    return <div className="empty-state">No project selected.</div>;
+  }
+
+  const rootListing = listings[rootPath];
+  if (!rootListing) {
+    return <div className="empty-state">Loading tree...</div>;
+  }
+
+  const renderNode = (path: string, depth: number) => {
+    const listing = listings[path];
+    if (!listing) return null;
+
+    return listing.entries.map((entry) => {
+      const isExpanded = !!expanded[entry.path];
+      const hasChildren = entry.is_dir;
+      return (
+        <div key={entry.path}>
+          <div
+            className="tree-row"
+            style={{ paddingLeft: `${8 + depth * 12}px` }}
+          >
+            <button className="tree-toggle" onClick={() => onToggle(entry)}>
+              <span className="tree-icon">{hasChildren ? (isExpanded ? '▾' : '▸') : '·'}</span>
+              <span className="tree-name">{entry.name}</span>
+            </button>
+            {!entry.is_dir && (
+              <button className="file-action" onClick={() => onAddToContext(entry)}>
+                Add
+              </button>
+            )}
+          </div>
+          {entry.is_dir && isExpanded && renderNode(entry.path, depth + 1)}
+        </div>
+      );
+    });
+  };
+
+  return <div className="tree-view">{renderNode(rootPath, 0)}</div>;
+}
+
+function relativeSubPath(rootPath: string, entryPath: string): string {
+  if (!entryPath.startsWith(rootPath)) return '';
+  const trimmed = entryPath.slice(rootPath.length);
+  if (trimmed.startsWith('/')) {
+    return trimmed.slice(1);
+  }
+  return trimmed;
 }
 
 function ProjectCreateModal({
@@ -371,12 +820,26 @@ function ProjectCreateModal({
         </label>
         <label className="field">
           <span className="field-label">Folder</span>
-          <input
-            className="field-input"
-            value={rootPath}
-            onChange={(event) => onChangeRootPath(event.target.value)}
-            placeholder="/path/to/project"
-          />
+          <div className="field-row">
+            <input
+              className="field-input"
+              value={rootPath}
+              onChange={(event) => onChangeRootPath(event.target.value)}
+              placeholder="/path/to/project"
+            />
+            <button
+              className="button"
+              type="button"
+              onClick={async () => {
+                const selection = await open({ directory: true, multiple: false });
+                if (typeof selection === 'string') {
+                  onChangeRootPath(selection);
+                }
+              }}
+            >
+              Browse
+            </button>
+          </div>
         </label>
         {error && <div className="field-error">{error}</div>}
         <div className="modal-actions">
