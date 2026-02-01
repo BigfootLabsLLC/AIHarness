@@ -995,7 +995,7 @@ async fn get_mcp_supported_tools() -> Result<Vec<mcp_config::AiToolInfo>, String
 }
 
 /// Configure MCP for a specific AI tool and project
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 async fn configure_mcp_for_tool(
     tool: String,
     project_id: String,
@@ -1015,7 +1015,7 @@ async fn configure_mcp_for_tool(
 }
 
 /// Configure MCP for all supported AI tools
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 async fn configure_mcp_for_all_tools(
     project_id: String,
     port: u16,
