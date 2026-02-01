@@ -68,6 +68,8 @@ pub enum ContextError {
     NotInContext(String),
     /// Invalid file path
     InvalidPath(String),
+    /// Configuration error
+    Config(String),
 }
 
 impl fmt::Display for ContextError {
@@ -77,6 +79,7 @@ impl fmt::Display for ContextError {
             Self::AlreadyExists(p) => write!(f, "File already in context: {}", p),
             Self::NotInContext(p) => write!(f, "File not in context: {}", p),
             Self::InvalidPath(p) => write!(f, "Invalid path: {}", p),
+            Self::Config(e) => write!(f, "Configuration error: {}", e),
         }
     }
 }

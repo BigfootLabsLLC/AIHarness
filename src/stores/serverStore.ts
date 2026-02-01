@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { ServerStatusState, ServerStatus, ToolCall, ContextFile, RawLog, TodoItem, ProjectInfo, DirectoryListing, ContextNote, BuildCommand } from '../types';
+import type { ServerStatusState, ServerStatus, ToolCall, ContextFile, RawLog, TodoItem, ProjectInfo, DirectoryListing, ContextNote, BuildCommand, McpToolInfo, McpConfigResult } from '../types';
 
 interface ServerState {
   // Server status
@@ -57,6 +57,11 @@ interface ServerState {
   clearToolCalls: () => void;
   clearRawLogs: () => void;
   addRawLog: (log: RawLog) => void;
+  // MCP Config
+  getMcpSupportedTools: () => Promise<McpToolInfo[]>;
+  generateMcpConfig: (tool: string, projectName: string, projectId: string) => Promise<string>;
+  writeMcpConfig: (tool: string, projectName: string, projectId: string) => Promise<McpConfigResult>;
+  configureMcpForAllTools: (projectName: string, projectId: string) => Promise<McpConfigResult[]>;
 }
 
 export const useServerStore = create<ServerState>((set, get) => ({
@@ -480,4 +485,70 @@ export const useServerStore = create<ServerState>((set, get) => ({
     buildCommands: [],
     currentProjectId: state.currentProjectId, // Keep the current project
   })),
+
+  // MCP Config
+  getMcpSupportedTools: async () => {
+    try {
+      const tools = await invoke<McpToolInfo[]>('get_mcp_supported_tools');
+      return tools;
+    } catch (error) {
+      console.error('Failed to get MCP supported tools:', error);
+      return [];
+    }
+  },
+
+  generateMcpConfig: async (tool: string, projectName: string, projectId: string) => {
+    try {
+      const port = get().port;
+      const config = await invoke<string>('generate_mcp_config_for_tool', {
+        tool,
+        project_name: projectName,
+        project_id: projectId,
+        port,
+      });
+      return config;
+    } catch (error) {
+      console.error('Failed to generate MCP config:', error);
+      throw error;
+    }
+  },
+
+  writeMcpConfig: async (tool: string, projectName: string, projectId: string) => {
+    try {
+      const port = get().port;
+      const result = await invoke<McpConfigResult>('write_mcp_config_for_tool', {
+        tool,
+        project_name: projectName,
+        project_id: projectId,
+        port,
+      });
+      return result;
+    } catch (error) {
+      console.error('Failed to write MCP config:', error);
+      return {
+        success: false,
+        message: String(error),
+        config_path: null,
+      };
+    }
+  },
+
+  configureMcpForAllTools: async (projectName: string, projectId: string) => {
+    try {
+      const port = get().port;
+      const results = await invoke<McpConfigResult[]>('configure_mcp_for_all_tools', {
+        project_name: projectName,
+        project_id: projectId,
+        port,
+      });
+      return results;
+    } catch (error) {
+      console.error('Failed to configure MCP for all tools:', error);
+      return [{
+        success: false,
+        message: String(error),
+        config_path: null,
+      }];
+    }
+  },
 }));

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { BuildCommand, DirectoryEntry, DirectoryListing, ToolCall } from './types';
+import type { BuildCommand, DirectoryEntry, DirectoryListing, ToolCall, McpConfigResult, McpToolInfo } from './types';
 import { useServerStore } from './stores/serverStore';
 import { open } from '@tauri-apps/plugin-dialog';
 
@@ -31,6 +31,9 @@ function App() {
     resetProjectData,
     executeTool,
     setCurrentProject,
+    getMcpSupportedTools,
+    writeMcpConfig,
+    configureMcpForAllTools,
   } = useServerStore();
   const [activeProject, setActiveProject] = useState('default');
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -76,6 +79,11 @@ function App() {
   const [tabs, setTabs] = useState<MainTab[]>([
     { id: 'workspace', title: 'Workspace', kind: 'home' },
   ]);
+  // MCP Config modal state
+  const [isMcpModalOpen, setIsMcpModalOpen] = useState(false);
+  const [mcpTools, setMcpTools] = useState<McpToolInfo[]>([]);
+  const [mcpResults, setMcpResults] = useState<McpConfigResult[]>([]);
+  const [isMcpConfiguring, setIsMcpConfiguring] = useState(false);
 
   useEffect(() => {
     useServerStore.getState().initialize();
@@ -297,6 +305,19 @@ function App() {
           )}
         </div>
         <div className="app-topbar__actions">
+          <button
+            className="toolbar-button"
+            disabled={!activeProjectInfo}
+            onClick={async () => {
+              if (!activeProjectInfo) return;
+              const tools = await getMcpSupportedTools();
+              setMcpTools(tools);
+              setMcpResults([]);
+              setIsMcpModalOpen(true);
+            }}
+          >
+            Add MCP
+          </button>
           <button
             className="toolbar-button"
             disabled={!defaultBuild}
@@ -579,6 +600,27 @@ function App() {
           onChangeRootPath={(value) => setProjectDraft((prev) => ({ ...prev, rootPath: value }))}
           onCancel={closeProjectModal}
           onSubmit={submitProject}
+        />
+      )}
+      {isMcpModalOpen && activeProjectInfo && (
+        <McpConfigModal
+          projectName={activeProjectInfo.name}
+          tools={mcpTools}
+          results={mcpResults}
+          isConfiguring={isMcpConfiguring}
+          onConfigureAll={async () => {
+            setIsMcpConfiguring(true);
+            const results = await configureMcpForAllTools(activeProjectInfo.name, activeProjectInfo.id);
+            setMcpResults(results);
+            setIsMcpConfiguring(false);
+          }}
+          onConfigureOne={async (tool: string) => {
+            setIsMcpConfiguring(true);
+            const result = await writeMcpConfig(tool, activeProjectInfo.name, activeProjectInfo.id);
+            setMcpResults((prev) => [...prev, result]);
+            setIsMcpConfiguring(false);
+          }}
+          onClose={() => setIsMcpModalOpen(false)}
         />
       )}
     </div>
@@ -876,6 +918,99 @@ function ProjectCreateModal({
           </button>
           <button className="button primary" onClick={onSubmit}>
             Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function McpConfigModal({
+  projectName,
+  tools,
+  results,
+  isConfiguring,
+  onConfigureAll,
+  onConfigureOne,
+  onClose,
+}: {
+  projectName: string;
+  tools: McpToolInfo[];
+  results: McpConfigResult[];
+  isConfiguring: boolean;
+  onConfigureAll: () => void;
+  onConfigureOne: (tool: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+        style={{ maxWidth: 600 }}
+      >
+        <div className="modal-title">Configure MCP for {projectName}</div>
+        <p className="text-sm text-gray-600 mb-4">
+          Add this project as an MCP server to your AI tools.
+        </p>
+
+        <div className="space-y-3 mb-4">
+          <button
+            className="button primary w-full"
+            onClick={onConfigureAll}
+            disabled={isConfiguring}
+          >
+            {isConfiguring ? 'Configuring...' : 'Configure All AI Tools'}
+          </button>
+        </div>
+
+        <div className="border-t pt-4">
+          <div className="text-sm font-semibold mb-2">Individual Tools:</div>
+          <div className="grid grid-cols-2 gap-2">
+            {tools.map((tool) => {
+              const result = results.find((r) => r.config_path?.includes(tool.tool.toLowerCase()));
+              return (
+                <button
+                  key={tool.tool}
+                  className={`button ${result?.success ? 'success' : result ? 'error' : ''}`}
+                  onClick={() => onConfigureOne(tool.tool.toLowerCase())}
+                  disabled={isConfiguring}
+                  title={tool.config_path}
+                >
+                  {tool.name}
+                  {result && (result.success ? ' ✓' : ' ✗')}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {results.length > 0 && (
+          <div className="border-t pt-4 mt-4">
+            <div className="text-sm font-semibold mb-2">Results:</div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {results.map((result, index) => (
+                <div
+                  key={index}
+                  className={`text-sm p-2 rounded ${result.success ? 'bg-green-100' : 'bg-red-100'}`}
+                >
+                  <div className={result.success ? 'text-green-800' : 'text-red-800'}>
+                    {result.success ? '✓' : '✗'} {result.message}
+                  </div>
+                  {result.config_path && (
+                    <div className="text-xs text-gray-600 mt-1">{result.config_path}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions mt-4">
+          <button className="button" onClick={onClose}>
+            Close
           </button>
         </div>
       </div>

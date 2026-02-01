@@ -13,6 +13,7 @@ pub mod context;
 pub mod context_notes;
 pub mod error;
 pub mod http_server;
+pub mod mcp_config;
 pub mod mcp_proxy;
 pub mod next_session;
 pub mod projects;
@@ -987,6 +988,126 @@ async fn list_directory_impl(
     })
 }
 
+/// MCP Configuration DTOs
+#[derive(Debug, Clone, Serialize)]
+pub struct McpConfigResult {
+    pub success: bool,
+    pub message: String,
+    pub config_path: Option<String>,
+}
+
+/// Get list of supported AI tools for MCP configuration
+#[tauri::command]
+async fn get_mcp_supported_tools() -> Result<Vec<mcp_config::AiToolInfo>, String> {
+    Ok(mcp_config::get_mcp_config_info())
+}
+
+/// Generate MCP configuration for a specific AI tool
+#[tauri::command]
+async fn generate_mcp_config_for_tool(
+    tool: String,
+    project_name: String,
+    project_id: String,
+    port: u16,
+) -> Result<String, String> {
+    let ai_tool = match tool.as_str() {
+        "claude" => mcp_config::AiTool::Claude,
+        "kimi" => mcp_config::AiTool::Kimi,
+        "gemini" => mcp_config::AiTool::Gemini,
+        "codex" => mcp_config::AiTool::Codex,
+        _ => return Err(format!("Unknown AI tool: {}", tool)),
+    };
+
+    mcp_config::generate_mcp_config(ai_tool, &project_name, &project_id, port)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Write MCP configuration for a specific AI tool
+#[tauri::command]
+async fn write_mcp_config_for_tool(
+    tool: String,
+    project_name: String,
+    project_id: String,
+    port: u16,
+) -> Result<McpConfigResult, String> {
+    let ai_tool = match tool.as_str() {
+        "claude" => mcp_config::AiTool::Claude,
+        "kimi" => mcp_config::AiTool::Kimi,
+        "gemini" => mcp_config::AiTool::Gemini,
+        "codex" => mcp_config::AiTool::Codex,
+        _ => {
+            return Ok(McpConfigResult {
+                success: false,
+                message: format!("Unknown AI tool: {}", tool),
+                config_path: None,
+            })
+        }
+    };
+
+    let config_path = ai_tool.config_path().map_err(|e| e.to_string())?;
+
+    match mcp_config::write_mcp_config(ai_tool, &project_name, &project_id, port).await {
+        Ok(_) => Ok(McpConfigResult {
+            success: true,
+            message: format!("MCP configuration added for {}", tool),
+            config_path: Some(config_path.to_string_lossy().to_string()),
+        }),
+        Err(e) => Ok(McpConfigResult {
+            success: false,
+            message: format!("Failed to write config: {}", e),
+            config_path: Some(config_path.to_string_lossy().to_string()),
+        }),
+    }
+}
+
+/// Configure MCP for all supported AI tools
+#[tauri::command]
+async fn configure_mcp_for_all_tools(
+    project_name: String,
+    project_id: String,
+    port: u16,
+) -> Result<Vec<McpConfigResult>, String> {
+    let tools = vec![
+        ("claude", mcp_config::AiTool::Claude),
+        ("kimi", mcp_config::AiTool::Kimi),
+        ("gemini", mcp_config::AiTool::Gemini),
+        ("codex", mcp_config::AiTool::Codex),
+    ];
+
+    let mut results = Vec::new();
+
+    for (name, tool) in tools {
+        let config_path = match tool.config_path() {
+            Ok(path) => path,
+            Err(e) => {
+                results.push(McpConfigResult {
+                    success: false,
+                    message: format!("Failed to get config path: {}", e),
+                    config_path: None,
+                });
+                continue;
+            }
+        };
+
+        let result = match mcp_config::write_mcp_config(tool, &project_name, &project_id, port).await {
+            Ok(_) => McpConfigResult {
+                success: true,
+                message: format!("MCP configuration added for {}", name),
+                config_path: Some(config_path.to_string_lossy().to_string()),
+            },
+            Err(e) => McpConfigResult {
+                success: false,
+                message: format!("Failed to write config: {}", e),
+                config_path: Some(config_path.to_string_lossy().to_string()),
+            },
+        };
+        results.push(result);
+    }
+
+    Ok(results)
+}
+
 /// Run the Tauri application
 pub fn run() {
     tracing_subscriber::fmt::init();
@@ -1127,6 +1248,10 @@ pub fn run() {
             remove_todo,
             move_todo,
             get_next_todo,
+            get_mcp_supported_tools,
+            generate_mcp_config_for_tool,
+            write_mcp_config_for_tool,
+            configure_mcp_for_all_tools,
         ])
         .run(tauri::generate_context!())
         .expect("error running app");

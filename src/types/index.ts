@@ -97,3 +97,17 @@ export interface RawLog {
   source: string;
   message: string;
 }
+
+/** MCP configuration info for an AI tool */
+export interface McpToolInfo {
+  tool: string;
+  name: string;
+  config_path: string;
+}
+
+/** Result of writing MCP configuration */
+export interface McpConfigResult {
+  success: boolean;
+  message: string;
+  config_path: string | null;
+}
