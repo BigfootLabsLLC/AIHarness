@@ -70,6 +70,7 @@ async fn list_tools(State(state): State<HttpState>) -> Json<serde_json::Value> {
     let mut tools = state.tool_registry.list();
     tools.extend(todo_tool_definitions());
     tools.extend(build_tool_definitions());
+    tools.extend(next_session_tool_definitions());
     Json(json!({ "tools": map_tools(&tools, "input_schema") }))
 }
 
@@ -208,6 +209,8 @@ async fn execute_tool_call(
         execute_todo_tool_call(state.clone(), tool_name, arguments.clone(), &project_id).await
     } else if is_build_tool(tool_name) {
         execute_build_tool_call(state.clone(), tool_name, arguments.clone(), &project_id).await
+    } else if is_next_session_tool(tool_name) {
+        execute_next_session_tool_call(state.clone(), tool_name, arguments.clone(), &project_id).await
     } else {
         let state_read = state.read().await;
         let tool = match state_read.tool_registry.get(tool_name) {
@@ -384,6 +387,7 @@ async fn handle_mcp_tools_list(
     let mut tools = state.tool_registry.list();
     tools.extend(todo_tool_definitions());
     tools.extend(build_tool_definitions());
+    tools.extend(next_session_tool_definitions());
     let tools = map_tools(&tools, "inputSchema");
     JsonRpcResponse {
         jsonrpc: "2.0".to_string(),
@@ -687,6 +691,32 @@ fn is_build_tool(tool_name: &str) -> bool {
     )
 }
 
+fn next_session_tool_definitions() -> Vec<ToolDefinition> {
+    vec![
+        ToolDefinition {
+            name: "next_session_read".to_string(),
+            description: "Read the next session briefing for the project.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {}
+            }),
+        },
+        ToolDefinition {
+            name: "next_session_write".to_string(),
+            description: "Write the next session briefing for the project.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": { "content": { "type": "string" } },
+                "required": ["content"]
+            }),
+        },
+    ]
+}
+
+fn is_next_session_tool(tool_name: &str) -> bool {
+    matches!(tool_name, "next_session_read" | "next_session_write")
+}
+
 async fn execute_build_tool_call(
     state: HttpState,
     tool_name: &str,
@@ -809,6 +839,37 @@ async fn execute_build_tool_call(
             Ok(serde_json::to_string(&command).unwrap_or_default())
         }
         _ => Err(format!("Unknown build tool: {}", tool_name)),
+    }
+}
+
+async fn execute_next_session_tool_call(
+    state: HttpState,
+    tool_name: &str,
+    arguments: serde_json::Value,
+    project_id: &str,
+) -> Result<String, String> {
+    let store = {
+        let state_read = state.read().await;
+        state_read
+            .get_project_store(project_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    let store = store.next_session_store.read().await;
+    match tool_name {
+        "next_session_read" => {
+            let briefing = store.get().await.map_err(|e| e.to_string())?;
+            Ok(briefing.map(|b| b.content).unwrap_or_default())
+        }
+        "next_session_write" => {
+            let content = arguments
+                .get("content")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing content".to_string())?;
+            let briefing = store.set(content).await.map_err(|e| e.to_string())?;
+            Ok(briefing.content)
+        }
+        _ => Err(format!("Unknown next session tool: {}", tool_name)),
     }
 }
 

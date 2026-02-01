@@ -26,11 +26,9 @@ function App() {
     updateContextNote,
     removeContextNote,
     loadBuildCommands,
-    addBuildCommand,
-    removeBuildCommand,
     runBuildCommand,
-    setDefaultBuildCommand,
     getDefaultBuildCommand,
+    resetProjectData,
     executeTool,
   } = useServerStore();
   const [activeProject, setActiveProject] = useState('default');
@@ -45,10 +43,8 @@ function App() {
   const [systemExpanded, setSystemExpanded] = useState<Record<string, boolean>>({});
   const [systemRoot, setSystemRoot] = useState('');
   const [newNote, setNewNote] = useState('');
-  const [newBuildName, setNewBuildName] = useState('');
-  const [newBuildCommand, setNewBuildCommand] = useState('');
-  const [newBuildDir, setNewBuildDir] = useState('');
   const [defaultBuild, setDefaultBuild] = useState<BuildCommand | null>(null);
+  const [buildOutputsByProject, setBuildOutputsByProject] = useState<Record<string, BuildOutputItem[]>>({});
   const filteredToolCalls = useMemo(
     () => toolCalls.filter((call) => call.project_id === activeProject),
     [toolCalls, activeProject],
@@ -59,6 +55,18 @@ function App() {
     () => projects.find((project) => project.id === activeProject) ?? null,
     [projects, activeProject],
   );
+  const buildOutputs = useMemo(
+    () => buildOutputsByProject[activeProject] ?? [],
+    [buildOutputsByProject, activeProject],
+  );
+  const statusClass =
+    status === 'running'
+      ? 'status-running'
+      : status === 'starting'
+        ? 'status-starting'
+        : status === 'error'
+          ? 'status-error'
+          : '';
   const [activeTab, setActiveTab] = useState<MainTab>({
     id: 'workspace',
     title: 'Workspace',
@@ -79,6 +87,10 @@ function App() {
   }, [projects, activeProject]);
 
   useEffect(() => {
+    setDefaultBuild(null);
+    setTabs([{ id: 'workspace', title: 'Workspace', kind: 'home' }]);
+    setActiveTab({ id: 'workspace', title: 'Workspace', kind: 'home' });
+    resetProjectData();
     loadToolHistory(activeProject);
     loadContextFilesForProject(activeProject);
     loadContextNotes(activeProject);
@@ -93,6 +105,7 @@ function App() {
     loadTodos,
     loadBuildCommands,
     getDefaultBuildCommand,
+    resetProjectData,
   ]);
 
   useEffect(() => {
@@ -116,10 +129,10 @@ function App() {
   }, [activeProjectInfo, activeProject, listProjectDirectory]);
 
   useEffect(() => {
-    if (!systemRoot && activeProjectInfo?.root_path) {
+    if (activeProjectInfo?.root_path) {
       setSystemRoot(activeProjectInfo.root_path);
     }
-  }, [systemRoot, activeProjectInfo]);
+  }, [activeProjectInfo]);
 
   useEffect(() => {
     if (!systemRoot) return;
@@ -217,6 +230,46 @@ function App() {
     closeProjectModal();
   };
 
+  const startBuildOutput = (projectId: string, tab: MainTab, payload: BuildPayload) => {
+    setBuildOutputsByProject((prev) => {
+      const current = prev[projectId] ?? [];
+      const next: BuildOutputItem = {
+        id: tab.id,
+        name: payload.name,
+        command: payload.command,
+        output: payload.output,
+        timestamp: Date.now(),
+        status: 'running',
+      };
+      const remaining = current.filter((item) => item.id !== tab.id);
+      return {
+        ...prev,
+        [projectId]: [next, ...remaining].slice(0, 8),
+      };
+    });
+  };
+
+  const finalizeBuildOutput = (projectId: string, tab: MainTab, payload: BuildPayload, status: BuildOutputStatus) => {
+    setTabs((prev) => addOrReplaceTab(prev, tab));
+    setActiveTab(tab);
+    setBuildOutputsByProject((prev) => {
+      const current = prev[projectId] ?? [];
+      const next: BuildOutputItem = {
+        id: tab.id,
+        name: payload.name,
+        command: payload.command,
+        output: payload.output,
+        timestamp: Date.now(),
+        status,
+      };
+      const remaining = current.filter((item) => item.id !== tab.id);
+      return {
+        ...prev,
+        [projectId]: [next, ...remaining].slice(0, 8),
+      };
+    });
+  };
+
   return (
     <div className="min-h-screen app-shell">
       <header className="app-topbar">
@@ -229,10 +282,16 @@ function App() {
             </div>
           </div>
           <div className="status-chip">
-            <span className={`status-dot status-${status}`} />
+            <span className={`status-dot ${statusClass}`} />
             <span className="status-text">{status}</span>
             <span className="status-port">:{port}</span>
           </div>
+          {activeProjectInfo && (
+            <div className="project-chip">
+              <span className="project-chip__label">Project</span>
+              <span className="project-chip__name">{activeProjectInfo.name}</span>
+            </div>
+          )}
         </div>
         <div className="app-topbar__actions">
           <button
@@ -240,20 +299,25 @@ function App() {
             disabled={!defaultBuild}
             onClick={async () => {
               if (!defaultBuild) return;
-              const output = await runBuildCommand(activeProject, defaultBuild.id);
-              if (!output) return;
+              const payload: BuildPayload = {
+                name: defaultBuild.name,
+                command: defaultBuild.command,
+                output: 'Running build...',
+              };
               const nextTab: MainTab = {
                 id: `build-${defaultBuild.id}-${Date.now()}`,
                 title: defaultBuild.name,
                 kind: 'build',
-                payload: {
-                  name: defaultBuild.name,
-                  command: defaultBuild.command,
-                  output,
-                },
+                payload,
               };
-              setTabs((prev) => addOrReplaceTab(prev, nextTab));
-              setActiveTab(nextTab);
+              startBuildOutput(activeProject, nextTab, payload);
+              const output = await runBuildCommand(activeProject, defaultBuild.id);
+              const finalPayload: BuildPayload = {
+                name: defaultBuild.name,
+                command: defaultBuild.command,
+                output: output ?? 'Build failed or no output returned.',
+              };
+              finalizeBuildOutput(activeProject, nextTab, finalPayload, output ? 'done' : 'failed');
             }}
           >
             Build
@@ -361,100 +425,6 @@ function App() {
                 )}
               </div>
             </PanelShell>
-
-            <PanelShell title="Build" tabs={['Commands']}>
-              <div className="stack">
-                <div className="note-input">
-                  <input
-                    value={newBuildName}
-                    onChange={(event) => setNewBuildName(event.target.value)}
-                    placeholder="Build name"
-                  />
-                </div>
-                <div className="note-input">
-                  <input
-                    value={newBuildCommand}
-                    onChange={(event) => setNewBuildCommand(event.target.value)}
-                    placeholder="npm run build:app"
-                  />
-                  <input
-                    value={newBuildDir}
-                    onChange={(event) => setNewBuildDir(event.target.value)}
-                    placeholder="working dir (optional)"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!newBuildName.trim() || !newBuildCommand.trim()) return;
-                      void addBuildCommand(
-                        activeProject,
-                        newBuildName.trim(),
-                        newBuildCommand.trim(),
-                        newBuildDir.trim() || undefined,
-                      );
-                      setNewBuildName('');
-                      setNewBuildCommand('');
-                      setNewBuildDir('');
-                    }}
-                  >
-                    Add
-                  </button>
-                </div>
-                {buildCommands.length === 0 ? (
-                  <div className="empty-state">No build commands yet.</div>
-                ) : (
-                  buildCommands.map((cmd) => (
-                    <div key={cmd.id} className="file-row">
-                      <div className="file-main">
-                        <div>
-                          <div className="row-title">
-                            {cmd.is_default ? '★ ' : ''}
-                            {cmd.name}
-                          </div>
-                          <div className="row-subtitle">{cmd.command}</div>
-                          {cmd.working_dir && <div className="row-subtitle">{cmd.working_dir}</div>}
-                        </div>
-                      </div>
-                      <button
-                        className="file-action"
-                        onClick={async () => {
-                          const output = await runBuildCommand(activeProject, cmd.id);
-                          if (!output) return;
-                          const nextTab: MainTab = {
-                            id: `build-${cmd.id}-${Date.now()}`,
-                            title: cmd.name,
-                            kind: 'build',
-                            payload: {
-                              name: cmd.name,
-                              command: cmd.command,
-                              output,
-                            },
-                          };
-                          setTabs((prev) => addOrReplaceTab(prev, nextTab));
-                          setActiveTab(nextTab);
-                        }}
-                      >
-                        Run
-                      </button>
-                      <button
-                        className="file-action"
-                        onClick={() => {
-                          void setDefaultBuildCommand(activeProject, cmd.id);
-                          setDefaultBuild(cmd);
-                        }}
-                      >
-                        Default
-                      </button>
-                      <button
-                        className="file-action"
-                        onClick={() => removeBuildCommand(activeProject, cmd.id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </PanelShell>
           </section>
 
           <section className="workspace-center">
@@ -489,6 +459,43 @@ function App() {
             <PanelShell title="Questions from Agents" tabs={['Inbox', 'Resolved']}>
               <div className="stack">
                 <div className="empty-state">No questions yet.</div>
+              </div>
+            </PanelShell>
+
+            <PanelShell title="Command Output" tabs={['Builds']}>
+              <div className="stack">
+                {buildOutputs.length === 0 ? (
+                  <div className="empty-state">No build output yet.</div>
+                ) : (
+                  buildOutputs.map((item) => (
+                    <button
+                      key={item.id}
+                      className="list-row compact-row"
+                      onClick={() => {
+                        const nextTab: MainTab = {
+                          id: item.id,
+                          title: item.name,
+                          kind: 'build',
+                          payload: {
+                            name: item.name,
+                            command: item.command,
+                            output: item.output,
+                          },
+                        };
+                        setTabs((prev) => addOrReplaceTab(prev, nextTab));
+                        setActiveTab(nextTab);
+                      }}
+                    >
+                      <div>
+                        <div className="row-title">{item.name}</div>
+                        <div className="row-subtitle">{previewOutput(item)}</div>
+                      </div>
+                      <div className="row-meta">
+                        {item.status} · {new Date(item.timestamp).toLocaleTimeString()}
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </PanelShell>
 
@@ -641,12 +648,30 @@ type BuildPayload = {
   output: string;
 };
 
+type BuildOutputStatus = 'running' | 'done' | 'failed';
+
+type BuildOutputItem = BuildPayload & {
+  id: string;
+  timestamp: number;
+  status: BuildOutputStatus;
+};
+
 function addOrReplaceTab(existing: MainTab[], next: MainTab): MainTab[] {
   const hasTab = existing.some((tab) => tab.id === next.id);
   if (hasTab) {
     return existing.map((tab) => (tab.id === next.id ? next : tab));
   }
   return [...existing, next];
+}
+
+function previewOutput(item: BuildOutputItem): string {
+  if (item.status === 'running') return 'Running...';
+  const trimmed = item.output.trim();
+  if (!trimmed) return 'No output.';
+  const lines = trimmed.split('\n').map((line) => line.trim()).filter(Boolean);
+  const signalLine = lines.find((line) => /error|failed|panic|warning/i.test(line));
+  const candidate = signalLine ?? lines[0] ?? trimmed;
+  return candidate.slice(0, 140);
 }
 
 function ToolCallDetail({ call }: { call?: ToolCall }) {

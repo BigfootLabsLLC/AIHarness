@@ -85,3 +85,8 @@ curl -s http://127.0.0.1:8787/mcp \
 - Build commands store optional `working_dir` and `is_default`.
 - `create_project` now accepts `rootPath` on the frontend; backend creates missing dirs.
 - Build succeeds with `npm run build:app`.
+
+## Known Issues / Handoff
+- **Tool history and todos aren’t scoped to the active project yet.** Switching projects keeps the previous project’s tool calls, todos, and context notes in the panels. The backend already accepts a `project_id`, but the UI data loaders need to fully reset/refresh when `activeProject` changes. Look at `loadToolHistory`, `loadTodos`, and `loadContext*` calls triggered by the selector watcher.
+- **File history panel is empty after switching projects.** No matter which project is active, the History box never refreshes and still reports “No tool calls yet.” Verify that `recentToolCalls` is derived from `toolCalls` filtered by `activeProject` and that the store updates when new tool call events arrive for the currently selected project. The new person should ensure `toolCalls` is reset/loaded per project so the History per-project view works.
+- **Status indicator still shows dark dot when running.** The `status` chip is hard-coded but the green "running" state should light up; double-check the CSS class wiring in `src/index.css`.

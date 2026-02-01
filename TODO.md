@@ -1,12 +1,14 @@
 # AIHarness Work TODO
 
 ## In Progress
+- [ ] Fix panel overflow: wrap long text and add scrollbars in side panels
 - [ ] Todo list auto-refresh on tool calls
 - [ ] Context settings: choose which files are in the context blob vs on-demand
 - [ ] Context blob tool: returns manual text + full-file inclusions
 - [ ] Project-aware context tools + file-on-demand tools
 - [ ] Shared library DB + move/copy flows
 - [ ] Project templates + import/export
+- [ ] Project selector should scope tool history/todos/context to the active project
 
 ## Done
 - [x] Build commands: store per project + MCP tools + UI buttons

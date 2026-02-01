@@ -74,6 +74,23 @@
     border: 1px solid var(--border-soft);
   }
 
+  .project-chip {
+    @apply flex items-center gap-2 px-2 py-1 text-[11px] font-semibold uppercase;
+    background: #ffffff;
+    color: var(--ink-700);
+    border: 1px solid var(--border-soft);
+  }
+
+  .project-chip__label {
+    color: var(--ink-500);
+    letter-spacing: 0.16em;
+  }
+
+  .project-chip__name {
+    text-transform: none;
+    font-weight: 600;
+  }
+
   .status-dot {
     width: 6px;
     height: 6px;
@@ -193,12 +210,14 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
   }
 
   .workspace-center {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
   }
 
   .panel-shell {
@@ -206,6 +225,7 @@
     border: 1px solid var(--border-soft);
     border-radius: 4px;
     padding: 6px;
+    min-height: 0;
   }
 
   .panel-shell__header {
@@ -243,6 +263,8 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-height: 0;
+    overflow: auto;
   }
 
   .stack {
@@ -295,6 +317,7 @@
     border-radius: 4px;
     background: var(--bone-50);
     border: 1px solid transparent;
+    min-width: 0;
   }
 
   .file-row:hover {
@@ -307,6 +330,7 @@
     gap: 6px;
     flex: 1;
     text-align: left;
+    min-width: 0;
   }
 
   .file-icon {
@@ -384,13 +408,20 @@
   .list-row,
   .todo-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
     padding: 4px 6px;
     border-radius: 4px;
     background: var(--bone-50);
     border: 1px solid transparent;
+    min-width: 0;
+  }
+
+  .list-row > div,
+  .todo-row > div {
+    flex: 1;
+    min-width: 0;
   }
 
   .compact-row {
@@ -406,17 +437,21 @@
   .row-title {
     font-weight: 600;
     font-size: 12px;
+    overflow-wrap: anywhere;
   }
 
   .row-subtitle {
     font-size: 11px;
     color: var(--ink-500);
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .row-meta {
     font-size: 10px;
     font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
     color: var(--ink-500);
+    flex-shrink: 0;
   }
 
   .tree-view {
@@ -452,6 +487,7 @@
     gap: 6px;
     text-align: left;
     flex: 1;
+    min-width: 0;
   }
 
   .tree-icon {
@@ -463,6 +499,7 @@
   .tree-name {
     font-size: 12px;
     font-weight: 500;
+    overflow-wrap: anywhere;
   }
 
   .todo-row {
@@ -604,6 +641,8 @@
   .detail-subtitle {
     font-size: 11px;
     color: var(--ink-500);
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .detail-meta {
@@ -633,6 +672,7 @@
     border-radius: 4px;
     padding: 8px;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .modal-backdrop {

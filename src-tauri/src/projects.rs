@@ -1,6 +1,6 @@
 //! Project registry and per-project storage.
 
-use crate::{build_commands::BuildCommandStore, context::ContextStore, context_notes::ContextNoteStore, error::ContextError, todos::TodoStore};
+use crate::{build_commands::BuildCommandStore, context::ContextStore, context_notes::ContextNoteStore, error::ContextError, next_session::NextSessionBriefingStore, todos::TodoStore};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -162,6 +162,7 @@ pub struct ProjectStore {
     pub info: ProjectInfo,
     pub context_store: Arc<RwLock<ContextStore>>,
     pub context_note_store: Arc<RwLock<ContextNoteStore>>,
+    pub next_session_store: Arc<RwLock<NextSessionBriefingStore>>,
     pub build_command_store: Arc<RwLock<BuildCommandStore>>,
     pub todo_store: Arc<RwLock<TodoStore>>,
 }
@@ -170,12 +171,14 @@ impl ProjectStore {
     pub async fn new(info: ProjectInfo) -> Result<Self, ContextError> {
         let context_store = ContextStore::new(&info.db_path).await?;
         let context_note_store = ContextNoteStore::new(&info.db_path).await?;
+        let next_session_store = NextSessionBriefingStore::new(&info.db_path).await?;
         let build_command_store = BuildCommandStore::new(&info.db_path).await?;
         let todo_store = TodoStore::new(&info.db_path).await?;
         Ok(Self {
             info,
             context_store: Arc::new(RwLock::new(context_store)),
             context_note_store: Arc::new(RwLock::new(context_note_store)),
+            next_session_store: Arc::new(RwLock::new(next_session_store)),
             build_command_store: Arc::new(RwLock::new(build_command_store)),
             todo_store: Arc::new(RwLock::new(todo_store)),
         })

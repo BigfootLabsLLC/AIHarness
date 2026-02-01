@@ -49,6 +49,7 @@ interface ServerState {
   addTodo: (projectId: string, title: string, description?: string) => Promise<void>;
   setTodoCompleted: (projectId: string, id: string, completed: boolean) => Promise<void>;
   removeTodo: (projectId: string, id: string) => Promise<void>;
+  resetProjectData: () => void;
   clearToolCalls: () => void;
   clearRawLogs: () => void;
   addRawLog: (log: RawLog) => void;
@@ -455,4 +456,12 @@ export const useServerStore = create<ServerState>((set, get) => ({
       console.error('Failed to remove todo:', error);
     }
   },
+
+  resetProjectData: () => set({
+    toolCalls: [],
+    contextFiles: [],
+    contextNotes: [],
+    todos: [],
+    buildCommands: [],
+  }),
 }));

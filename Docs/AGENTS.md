@@ -17,7 +17,14 @@
 - **Clear error messages** — If something fails, the error should be actionable
 - **Incremental development** — Small, working steps over big bangs
 
-### 2. Architecture Principles
+### 2. Next Session Briefing (Required)
+
+Before starting work, read the project’s next session briefing via MCP:
+
+- Use `next_session_read` at the start of a session.
+- If you learn something the next session needs, update it with `next_session_write`.
+
+### 3. Architecture Principles
 
 **UI Layer = Thin**
 - Minimal logic in React components

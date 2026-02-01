@@ -14,6 +14,7 @@ pub mod context_notes;
 pub mod error;
 pub mod http_server;
 pub mod mcp_proxy;
+pub mod next_session;
 pub mod projects;
 pub mod todos;
 pub mod tools;
