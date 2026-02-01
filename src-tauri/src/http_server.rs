@@ -4,7 +4,7 @@
 
 use axum::{
     routing::{get, post},
-    extract::State,
+    extract::{Path, State},
     response::IntoResponse,
     Json, Router,
 };
@@ -52,7 +52,10 @@ fn create_router(app_state: HttpState) -> Router {
         .route("/", get(health_check))
         .route("/tools", get(list_tools))
         .route("/call", post(execute_tool))
+        // Legacy MCP endpoint (uses default project or project_id in params)
         .route("/mcp", post(handle_mcp_request))
+        // Project-specific MCP endpoint (project_id in URL path)
+        .route("/mcp/:project_id", post(handle_mcp_request_for_project))
         .route("/events", get(get_events))
         .route("/events/stream", get(stream_events))
         .layer(CorsLayer::permissive())
@@ -148,10 +151,28 @@ fn json_rpc_error_response(
     }
 }
 
-/// Handle MCP JSON-RPC requests over HTTP
+/// Handle MCP JSON-RPC requests over HTTP (legacy - uses default project or project_id in params)
 async fn handle_mcp_request(
     State(state): State<HttpState>,
     Json(request): Json<serde_json::Value>,
+) -> Json<JsonRpcResponse> {
+    handle_mcp_request_internal(state, request, None).await
+}
+
+/// Handle MCP JSON-RPC requests for a specific project (project_id in URL path)
+async fn handle_mcp_request_for_project(
+    State(state): State<HttpState>,
+    Path(project_id): Path<String>,
+    Json(request): Json<serde_json::Value>,
+) -> Json<JsonRpcResponse> {
+    handle_mcp_request_internal(state, request, Some(project_id)).await
+}
+
+/// Internal handler for MCP requests with optional project_id override
+async fn handle_mcp_request_internal(
+    state: HttpState,
+    request: serde_json::Value,
+    project_id_override: Option<String>,
 ) -> Json<JsonRpcResponse> {
     let request = match parse_json_rpc_request(request) {
         Ok(req) => req,
@@ -161,9 +182,9 @@ async fn handle_mcp_request(
     let response = match request.method.as_str() {
         "initialize" => handle_mcp_initialize(request.id),
         "tools/list" => handle_mcp_tools_list(&state, request.id).await,
-        "tools/call" => handle_mcp_tools_call(&state, request.id, request.params).await,
-        "resources/list" => handle_mcp_resources_list(&state, request.id, request.params).await,
-        "resources/read" => handle_mcp_resources_read(&state, request.id, request.params).await,
+        "tools/call" => handle_mcp_tools_call(&state, request.id, request.params, project_id_override.as_deref()).await,
+        "resources/list" => handle_mcp_resources_list(&state, request.id, request.params, project_id_override.as_deref()).await,
+        "resources/read" => handle_mcp_resources_read(&state, request.id, request.params, project_id_override.as_deref()).await,
         _ => json_rpc_error_response(-32601, format!("Method not found: {}", request.method), request.id),
     };
 
@@ -402,6 +423,7 @@ async fn handle_mcp_tools_call(
     state: &HttpState,
     id: Option<serde_json::Value>,
     params: Option<serde_json::Value>,
+    project_id_override: Option<&str>,
 ) -> JsonRpcResponse {
     let params = match require_params(params, id.clone()) {
         Ok(p) => p,
@@ -414,12 +436,18 @@ async fn handle_mcp_tools_call(
     };
 
     let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
-    let project_id = params
-        .get("projectId")
-        .or_else(|| params.get("project_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("default")
-        .to_string();
+    
+    // Use project_id from URL path override, or from params, or default to "default"
+    let project_id = project_id_override
+        .map(|s| s.to_string())
+        .or_else(|| {
+            params
+                .get("projectId")
+                .or_else(|| params.get("project_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "default".to_string());
 
     match execute_tool_call(state.clone(), tool_name, arguments, project_id).await {
         Ok(result) => mcp_content_response(id, result.content, false),
@@ -432,13 +460,19 @@ async fn handle_mcp_resources_list(
     state: &HttpState,
     id: Option<serde_json::Value>,
     params: Option<serde_json::Value>,
+    project_id_override: Option<&str>,
 ) -> JsonRpcResponse {
-    let project_id = params
-        .as_ref()
-        .and_then(|p| p.get("projectId").or_else(|| p.get("project_id")))
-        .and_then(|v| v.as_str())
-        .unwrap_or("default")
-        .to_string();
+    // Use project_id from URL path override, or from params, or default to "default"
+    let project_id = project_id_override
+        .map(|s| s.to_string())
+        .or_else(|| {
+            params
+                .as_ref()
+                .and_then(|p| p.get("projectId").or_else(|| p.get("project_id")))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         match state_read.get_project_store(&project_id).await {
@@ -478,6 +512,7 @@ async fn handle_mcp_resources_read(
     state: &HttpState,
     id: Option<serde_json::Value>,
     params: Option<serde_json::Value>,
+    _project_id_override: Option<&str>,
 ) -> JsonRpcResponse {
     let params = match require_params(params, id.clone()) {
         Ok(p) => p,
