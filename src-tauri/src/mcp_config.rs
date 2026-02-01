@@ -48,12 +48,14 @@ impl AiTool {
                 Ok(Some(home.join(".kimi").join("mcp.json")))
             }
             AiTool::Gemini => {
-                // TODO: Confirm from docs
-                Ok(Some(home.join(".gemini").join("config.json")))
+                // Gemini CLI: ~/.gemini/settings.json
+                // https://geminicli.com/docs/tools/mcp-server/
+                Ok(Some(home.join(".gemini").join("settings.json")))
             }
             AiTool::Codex => {
-                // TODO: Confirm from docs
-                Ok(Some(home.join(".codex").join("config.json")))
+                // Codex CLI: ~/.codex/config.yaml (YAML format!)
+                // https://developers.openai.com/codex/mcp/
+                Ok(Some(home.join(".codex").join("config.yaml")))
             }
         }
     }
@@ -268,24 +270,144 @@ async fn configure_kimi(project_id: &str, server_port: u16) -> Result<McpSetupRe
     })
 }
 
-/// Configure Gemini CLI (TODO: update when docs available)
-async fn configure_gemini(_project_id: &str, _server_port: u16) -> Result<McpSetupResult, ContextError> {
-    // TODO: Update when documentation is provided
+/// Configure Gemini CLI using file-based config
+/// 
+/// Config location: ~/.gemini/settings.json
+/// Format: { "mcpServers": { "name": { "url": "..." } } }
+/// Docs: https://geminicli.com/docs/tools/mcp-server/
+async fn configure_gemini(project_id: &str, server_port: u16) -> Result<McpSetupResult, ContextError> {
+    let config_path = match AiTool::Gemini.config_path()? {
+        Some(p) => p,
+        None => return Err(ContextError::Config("No config path for Gemini".to_string())),
+    };
+
+    let server_url = format!("http://127.0.0.1:{}/mcp/{}", server_port, project_id);
+    let server_name = format!("aiharness-{}", project_id);
+
+    // Create the config entry
+    let config = serde_json::json!({
+        "mcpServers": {
+            server_name.clone(): {
+                "url": server_url
+            }
+        }
+    });
+
+    // Read existing config if present
+    let existing_config = if config_path.exists() {
+        tokio::fs::read_to_string(&config_path).await.ok()
+    } else {
+        None
+    };
+
+    // Merge configs
+    let merged = merge_mcp_config(existing_config, config).await?;
+
+    // Ensure parent directory exists
+    if let Some(parent) = config_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            ContextError::Config(format!("Failed to create config directory: {}", e))
+        })?;
+    }
+
+    // Write the config
+    tokio::fs::write(&config_path, merged).await.map_err(|e| {
+        ContextError::Config(format!("Failed to write config file: {}", e))
+    })?;
+
     Ok(McpSetupResult {
-        success: false,
-        message: "Gemini CLI configuration not yet implemented - waiting for docs".to_string(),
-        config_path: None,
+        success: true,
+        message: format!("Added '{}' to Gemini CLI", server_name),
+        config_path: Some(config_path.to_string_lossy().to_string()),
     })
 }
 
-/// Configure Codex CLI (TODO: update when docs available)
-async fn configure_codex(_project_id: &str, _server_port: u16) -> Result<McpSetupResult, ContextError> {
-    // TODO: Update when documentation is provided
+/// Configure Codex CLI using YAML-based config
+/// 
+/// Config location: ~/.codex/config.yaml
+/// Format: 
+///   mcpServers:
+///     name:
+///       url: https://...
+/// Docs: https://developers.openai.com/codex/mcp/
+async fn configure_codex(project_id: &str, server_port: u16) -> Result<McpSetupResult, ContextError> {
+    let config_path = match AiTool::Codex.config_path()? {
+        Some(p) => p,
+        None => return Err(ContextError::Config("No config path for Codex".to_string())),
+    };
+
+    let server_url = format!("http://127.0.0.1:{}/mcp/{}", server_port, project_id);
+    let server_name = format!("aiharness-{}", project_id);
+
+    // Read existing config if present
+    let existing_yaml = if config_path.exists() {
+        tokio::fs::read_to_string(&config_path).await.ok()
+    } else {
+        None
+    };
+
+    // Merge YAML configs
+    let merged = merge_codex_config(existing_yaml, &server_name, &server_url)?;
+
+    // Ensure parent directory exists
+    if let Some(parent) = config_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            ContextError::Config(format!("Failed to create config directory: {}", e))
+        })?;
+    }
+
+    // Write the config
+    tokio::fs::write(&config_path, merged).await.map_err(|e| {
+        ContextError::Config(format!("Failed to write config file: {}", e))
+    })?;
+
     Ok(McpSetupResult {
-        success: false,
-        message: "Codex CLI configuration not yet implemented - waiting for docs".to_string(),
-        config_path: None,
+        success: true,
+        message: format!("Added '{}' to Codex CLI", server_name),
+        config_path: Some(config_path.to_string_lossy().to_string()),
     })
+}
+
+/// Merge new Codex MCP config with existing YAML config
+fn merge_codex_config(
+    existing: Option<String>,
+    server_name: &str,
+    server_url: &str,
+) -> Result<String, ContextError> {
+    use serde_yaml::Value;
+
+    let mut config: Value = if let Some(content) = existing {
+        serde_yaml::from_str(&content)
+            .map_err(|e| ContextError::Config(format!("Invalid existing YAML config: {}", e)))?
+    } else {
+        Value::Mapping(serde_yaml::Mapping::new())
+    };
+
+    // Ensure mcpServers exists
+    let mcp_servers = config
+        .as_mapping_mut()
+        .ok_or_else(|| ContextError::Config("Invalid YAML config structure".to_string()))?
+        .entry(Value::String("mcpServers".to_string()))
+        .or_insert_with(|| Value::Mapping(serde_yaml::Mapping::new()));
+
+    // Add our server
+    let server_mapping = mcp_servers
+        .as_mapping_mut()
+        .ok_or_else(|| ContextError::Config("Invalid mcpServers structure".to_string()))?;
+    
+    let mut server_config = serde_yaml::Mapping::new();
+    server_config.insert(
+        Value::String("url".to_string()),
+        Value::String(server_url.to_string()),
+    );
+    
+    server_mapping.insert(
+        Value::String(server_name.to_string()),
+        Value::Mapping(server_config),
+    );
+
+    serde_yaml::to_string(&config)
+        .map_err(|e| ContextError::Config(format!("Failed to serialize YAML config: {}", e)))
 }
 
 /// Merge new MCP config with existing config
