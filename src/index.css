@@ -98,15 +98,15 @@
     background: var(--ink-500);
   }
 
-  .status-running {
+  .status-dot.status-running {
     background: var(--accent-500);
   }
 
-  .status-starting {
+  .status-dot.status-starting {
     background: var(--warning-400);
   }
 
-  .status-error {
+  .status-dot.status-error {
     background: #c94a4a;
   }
 

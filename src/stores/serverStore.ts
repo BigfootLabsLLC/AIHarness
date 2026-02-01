@@ -9,6 +9,9 @@ interface ServerState {
   port: number;
   error: string | null;
   
+  // Current project (for filtering events)
+  currentProjectId: string | null;
+  
   // Data
   toolCalls: ToolCall[];
   contextFiles: ContextFile[];
@@ -21,6 +24,7 @@ interface ServerState {
   
   // Actions
   initialize: () => Promise<void>;
+  setCurrentProject: (projectId: string) => void;
   loadToolHistory: (projectId: string) => Promise<void>;
   startServer: () => Promise<void>;
   stopServer: () => Promise<void>;
@@ -60,6 +64,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
   status: 'stopped',
   port: 8787,
   error: null,
+  currentProjectId: null,
   toolCalls: [],
   contextFiles: [],
   contextNotes: [],
@@ -90,9 +95,15 @@ export const useServerStore = create<ServerState>((set, get) => ({
       // Subscribe to tool-call events from backend
       listen<ToolCall>('tool-call', (event) => {
         console.log('[ToolCall] Received:', event.payload);
-        set((state) => ({
-          toolCalls: [event.payload, ...state.toolCalls].slice(0, 100)
-        }));
+        set((state) => {
+          // Only add if it matches the current project
+          if (state.currentProjectId && event.payload.project_id !== state.currentProjectId) {
+            return state; // Skip - different project
+          }
+          return {
+            toolCalls: [event.payload, ...state.toolCalls].slice(0, 100)
+          };
+        });
       }).catch(console.error);
       
       // Subscribe to raw-log events from backend
@@ -174,10 +185,14 @@ export const useServerStore = create<ServerState>((set, get) => ({
     return result;
   },
 
+  setCurrentProject: (projectId: string) => {
+    set({ currentProjectId: projectId });
+  },
+
   loadToolHistory: async (projectId: string) => {
     try {
       const history = await invoke<ToolCall[]>('get_event_history', { project_id: projectId });
-      set({ toolCalls: history });
+      set({ toolCalls: history, currentProjectId: projectId });
     } catch (error) {
       console.error('Failed to load tool history:', error);
     }
@@ -457,11 +472,12 @@ export const useServerStore = create<ServerState>((set, get) => ({
     }
   },
 
-  resetProjectData: () => set({
+  resetProjectData: () => set((state) => ({
     toolCalls: [],
     contextFiles: [],
     contextNotes: [],
     todos: [],
     buildCommands: [],
-  }),
+    currentProjectId: state.currentProjectId, // Keep the current project
+  })),
 }));

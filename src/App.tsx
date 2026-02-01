@@ -30,6 +30,7 @@ function App() {
     getDefaultBuildCommand,
     resetProjectData,
     executeTool,
+    setCurrentProject,
   } = useServerStore();
   const [activeProject, setActiveProject] = useState('default');
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -90,6 +91,7 @@ function App() {
     setDefaultBuild(null);
     setTabs([{ id: 'workspace', title: 'Workspace', kind: 'home' }]);
     setActiveTab({ id: 'workspace', title: 'Workspace', kind: 'home' });
+    setCurrentProject(activeProject);
     resetProjectData();
     loadToolHistory(activeProject);
     loadContextFilesForProject(activeProject);
@@ -106,6 +108,7 @@ function App() {
     loadBuildCommands,
     getDefaultBuildCommand,
     resetProjectData,
+    setCurrentProject,
   ]);
 
   useEffect(() => {
