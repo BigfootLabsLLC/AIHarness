@@ -61,11 +61,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     
     console.log('[ProjectContext] Auto-loading data for:', currentProjectId);
     
+    // Log to file
+    invoke('debug_log_cmd', { msg: `[ProjectContext] Auto-loading START for ${currentProjectId}` });
+    
     // Update server-side current project for event filtering
     setCurrentProject(currentProjectId);
     
     // Load all project data
-    loadTodos(currentProjectId);
+    console.log('[ProjectContext] Calling loadTodos with:', currentProjectId);
+    loadTodos(currentProjectId).then(() => {
+      console.log('[ProjectContext] loadTodos completed for:', currentProjectId);
+      invoke('debug_log_cmd', { msg: `[ProjectContext] loadTodos DONE for ${currentProjectId}` });
+    });
     loadContextNotes(currentProjectId);
     loadBuildCommands(currentProjectId);
     

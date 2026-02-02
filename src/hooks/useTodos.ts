@@ -6,8 +6,12 @@ export function useTodos() {
   const { currentProjectId } = useCurrentProject();
   const { todosByProject, addTodo, setTodoCompleted, removeTodo, loadTodos } = useServerStore();
 
+  console.log('[useTodos] currentProjectId:', currentProjectId);
+  console.log('[useTodos] todosByProject keys:', Array.from(todosByProject.keys()));
+
   // Automatically get todos for current project
   const todos = useMemo(() => {
+    console.log('[useTodos] Computing todos for:', currentProjectId);
     return todosByProject.get(currentProjectId) ?? [];
   }, [todosByProject, currentProjectId]);
 
