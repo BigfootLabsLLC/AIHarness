@@ -640,6 +640,10 @@ function App() {
                     <div style={{ wordBreak: 'break-all' }}>{activeProjectInfo.root_path}</div>
                     <div style={{ marginTop: '8px' }}><strong>DB Path:</strong></div>
                     <div style={{ wordBreak: 'break-all', color: '#0b8d80' }}>{activeProjectInfo.db_path}</div>
+                    <div style={{ marginTop: '8px' }}><strong>Todos in Cache:</strong></div>
+                    <div>{useServerStore.getState().todosByProject.get(activeProject)?.length ?? 0} items</div>
+                    <div style={{ marginTop: '8px' }}><strong>Cache Keys:</strong></div>
+                    <div>{Array.from(useServerStore.getState().todosByProject.keys()).join(', ') || 'None'}</div>
                   </>
                 ) : (
                   <div className="empty-state">No project selected</div>
