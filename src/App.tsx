@@ -12,7 +12,7 @@ function App() {
     toolCalls,
     contextFiles,
     contextNotes,
-    buildCommands,
+    getBuildCommands,
     projects,
     loadToolHistory,
     loadContextFilesForProject,
@@ -34,7 +34,11 @@ function App() {
     configureMcpForAllTools,
     executeTool,
   } = useServerStore();
+  
   const [activeProject, setActiveProjectState] = useState('default');
+  
+  // Get build commands for the current project (must be after activeProject declaration)
+  const buildCommands = getBuildCommands(activeProject);
   
   // Restore last project on mount (only once)
   useEffect(() => {
@@ -167,7 +171,7 @@ function App() {
   }, [systemRoot, listDirectory]);
 
   useEffect(() => {
-    const activeDefault = buildCommands.find((cmd) => cmd.is_default) ?? null;
+    const activeDefault = buildCommands.find((cmd: BuildCommand) => cmd.is_default) ?? null;
     if (activeDefault) {
       setDefaultBuild(activeDefault);
       return;
@@ -829,7 +833,7 @@ function BuildOutputDetail({ payload }: { payload?: BuildPayload }) {
 }
 
 function TodosDetail({ projectId }: { projectId: string }) {
-  const { todos, addTodo, setTodoCompleted, removeTodo, loadTodos } = useServerStore();
+  const { getTodos, addTodo, setTodoCompleted, removeTodo, loadTodos } = useServerStore();
   const [newTodo, setNewTodo] = useState('');
   
   // Load todos for this project when viewing
@@ -837,6 +841,7 @@ function TodosDetail({ projectId }: { projectId: string }) {
     loadTodos(projectId);
   }, [projectId, loadTodos]);
   
+  const todos = getTodos(projectId);
   const activeCount = todos.filter(t => !t.completed).length;
   
   return (

@@ -8,19 +8,24 @@ interface TodoPanelProps {
 }
 
 export function TodoPanel({ projectId, projectName, onViewAll }: TodoPanelProps) {
-  const { todos, todosProjectId, loadTodos, addTodo, setTodoCompleted, removeTodo } = useServerStore();
+  const { todosByProject, getTodos, loadTodos, addTodo, setTodoCompleted, removeTodo } = useServerStore();
   const [newTodoTitle, setNewTodoTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Check if we've loaded todos for this project
+  const hasLoaded = todosByProject.has(projectId);
+  
+  // Get todos for this specific project from the Map
+  const todos = getTodos(projectId);
 
-  // Validate that we're showing the right project's todos
-  const isStale = todosProjectId !== projectId;
-
-  // Reload todos when project changes or if data is stale
+  // Reload todos when project changes or if data hasn't been loaded yet
   useEffect(() => {
-    console.log('[TodoPanel] Project changed to:', projectId, 'Current todosProjectId:', todosProjectId);
-    setIsLoading(true);
-    Promise.resolve(loadTodos(projectId)).finally(() => setIsLoading(false));
-  }, [projectId, loadTodos]);
+    console.log('[TodoPanel] Project:', projectId, 'Has loaded:', hasLoaded);
+    if (!hasLoaded) {
+      setIsLoading(true);
+      Promise.resolve(loadTodos(projectId)).finally(() => setIsLoading(false));
+    }
+  }, [projectId, hasLoaded, loadTodos]);
 
   const handleAddTodo = async () => {
     if (!newTodoTitle.trim()) return;
@@ -28,7 +33,7 @@ export function TodoPanel({ projectId, projectName, onViewAll }: TodoPanelProps)
     setNewTodoTitle('');
   };
 
-  if (isStale && !isLoading) {
+  if (!hasLoaded && isLoading) {
     return (
       <div className="p-2 text-sm text-amber-600">
         Loading todos for {projectName}...

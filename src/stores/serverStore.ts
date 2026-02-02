@@ -12,17 +12,19 @@ interface ServerState {
   // Current project (for filtering events)
   currentProjectId: string | null;
   
-  // Data
+  // Data - keyed by project ID where applicable
   toolCalls: ToolCall[];
   contextFiles: ContextFile[];
   contextNotes: ContextNote[];
   rawLogs: RawLog[];
-  todos: TodoItem[];
-  todosProjectId: string | null; // Track which project the todos belong to
-  buildCommands: BuildCommand[];
-  buildCommandsProjectId: string | null; // Track which project the build commands belong to
+  todosByProject: Map<string, TodoItem[]>; // Keyed by project ID
+  buildCommandsByProject: Map<string, BuildCommand[]>; // Keyed by project ID
   projects: ProjectInfo[];
   isLoading: boolean;
+  
+  // Getters for current project's data
+  getTodos: (projectId: string) => TodoItem[];
+  getBuildCommands: (projectId: string) => BuildCommand[];
   
   // Actions
   initialize: () => Promise<void>;
@@ -76,12 +78,14 @@ export const useServerStore = create<ServerState>((set, get) => ({
   contextFiles: [],
   contextNotes: [],
   rawLogs: [],
-  todos: [],
-  todosProjectId: null,
-  buildCommands: [],
-  buildCommandsProjectId: null,
+  todosByProject: new Map(),
+  buildCommandsByProject: new Map(),
   projects: [],
   isLoading: false,
+  
+  // Getters
+  getTodos: (projectId: string) => get().todosByProject.get(projectId) ?? [],
+  getBuildCommands: (projectId: string) => get().buildCommandsByProject.get(projectId) ?? [],
   
   // Initialize - check server status and subscribe to events
   initialize: async () => {
@@ -258,10 +262,18 @@ export const useServerStore = create<ServerState>((set, get) => ({
   loadBuildCommands: async (projectId: string) => {
     try {
       const commands = await invoke<BuildCommand[]>('list_build_commands', { project_id: projectId });
-      set({ buildCommands: commands, buildCommandsProjectId: projectId });
+      set((state) => {
+        const newMap = new Map(state.buildCommandsByProject);
+        newMap.set(projectId, commands);
+        return { buildCommandsByProject: newMap };
+      });
     } catch (error) {
       console.error('Failed to load build commands:', error);
-      set({ buildCommands: [], buildCommandsProjectId: projectId });
+      set((state) => {
+        const newMap = new Map(state.buildCommandsByProject);
+        newMap.set(projectId, []);
+        return { buildCommandsByProject: newMap };
+      });
     }
   },
 
@@ -461,10 +473,18 @@ export const useServerStore = create<ServerState>((set, get) => ({
       console.log('[Store] Loading todos for project:', projectId);
       const todos = await invoke<TodoItem[]>('list_todos', { project_id: projectId });
       console.log('[Store] Loaded', todos.length, 'todos for project:', projectId);
-      set({ todos, todosProjectId: projectId });
+      set((state) => {
+        const newMap = new Map(state.todosByProject);
+        newMap.set(projectId, todos);
+        return { todosByProject: newMap };
+      });
     } catch (error) {
       console.error('Failed to load todos:', error);
-      set({ todos: [], todosProjectId: projectId });
+      set((state) => {
+        const newMap = new Map(state.todosByProject);
+        newMap.set(projectId, []);
+        return { todosByProject: newMap };
+      });
     }
   },
 
@@ -499,10 +519,8 @@ export const useServerStore = create<ServerState>((set, get) => ({
     toolCalls: [],
     contextFiles: [],
     contextNotes: [],
-    todos: [],
-    todosProjectId: null,
-    buildCommands: [],
-    buildCommandsProjectId: null,
+    // Don't clear todosByProject or buildCommandsByProject - 
+    // they contain data for all projects
   }),
 
   // MCP Config
