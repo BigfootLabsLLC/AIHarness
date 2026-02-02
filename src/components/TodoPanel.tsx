@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useServerStore } from '../stores/serverStore';
+import { invoke } from '@tauri-apps/api/core';
 
 interface TodoPanelProps {
   projectId: string;
@@ -20,8 +21,12 @@ export function TodoPanel({ projectId, projectName, onViewAll }: TodoPanelProps)
 
   // Reload todos when project changes or if data hasn't been loaded yet
   useEffect(() => {
-    console.log('[TodoPanel] Project:', projectId, 'Has loaded:', hasLoaded);
+    console.log('[TodoPanel] EFFECT RUNNING projectId:', projectId, 'Has loaded:', hasLoaded);
+    // Write to file log
+    invoke('debug_log_cmd', { msg: `[TodoPanel] projectId=${projectId} hasLoaded=${hasLoaded}` });
     if (!hasLoaded) {
+      console.log('[TodoPanel] CALLING loadTodos with projectId:', projectId);
+      invoke('debug_log_cmd', { msg: `[TodoPanel] CALLING loadTodos(${projectId})` });
       setIsLoading(true);
       Promise.resolve(loadTodos(projectId)).finally(() => setIsLoading(false));
     }

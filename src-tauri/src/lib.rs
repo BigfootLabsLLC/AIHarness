@@ -14,6 +14,11 @@ use std::sync::Mutex;
 /// Simple file logger for debugging
 static DEBUG_LOG: Mutex<Option<std::fs::File>> = Mutex::new(None);
 
+#[tauri::command]
+fn debug_log_cmd(msg: String) {
+    debug_log(&msg);
+}
+
 pub fn debug_log(msg: &str) {
     let path = "/Users/danbaker/Projects/AIHarness/aiharness_debug.log";
     let mut guard = DEBUG_LOG.lock().unwrap();
@@ -1256,6 +1261,7 @@ pub fn run() {
             get_mcp_supported_tools,
             configure_mcp_for_tool,
             configure_mcp_for_all_tools,
+            debug_log_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error running app");

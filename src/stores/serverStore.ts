@@ -471,7 +471,9 @@ export const useServerStore = create<ServerState>((set, get) => ({
   loadTodos: async (projectId: string) => {
     try {
       console.log('[Store] Loading todos for project:', projectId);
+      await invoke('debug_log_cmd', { msg: `[Store] loadTodos called with projectId=${projectId}` });
       const todos = await invoke<TodoItem[]>('list_todos', { project_id: projectId });
+      await invoke('debug_log_cmd', { msg: `[Store] loadTodos received ${todos.length} todos for ${projectId}` });
       console.log('[Store] Loaded', todos.length, 'todos for project:', projectId);
       set((state) => {
         const newMap = new Map(state.todosByProject);
