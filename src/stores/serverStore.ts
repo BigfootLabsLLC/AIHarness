@@ -293,7 +293,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   removeBuildCommand: async (projectId: string, id: string) => {
     try {
-      await invoke('remove_build_command', { project_id: projectId, id });
+      await invoke('remove_build_command', { args: { project_id: projectId, id } });
       await get().loadBuildCommands(projectId);
     } catch (error) {
       console.error('Failed to remove build command:', error);
@@ -302,7 +302,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   runBuildCommand: async (projectId: string, id: string) => {
     try {
-      const output = await invoke<string>('run_build_command', { project_id: projectId, id });
+      const output = await invoke<string>('run_build_command', { args: { project_id: projectId, id } });
       return output;
     } catch (error) {
       console.error('Failed to run build command:', error);
@@ -312,7 +312,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   setDefaultBuildCommand: async (projectId: string, id: string) => {
     try {
-      await invoke('set_default_build_command', { project_id: projectId, id });
+      await invoke('set_default_build_command', { args: { project_id: projectId, id } });
       await get().loadBuildCommands(projectId);
     } catch (error) {
       console.error('Failed to set default build command:', error);
@@ -322,7 +322,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
   getDefaultBuildCommand: async (projectId: string) => {
     try {
       const command = await invoke<BuildCommand | null>('get_default_build_command', {
-        project_id: projectId,
+        args: { project_id: projectId },
       });
       return command;
     } catch (error) {
@@ -346,7 +346,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   updateContextNote: async (projectId: string, id: string, content: string) => {
     try {
-      await invoke('update_context_note', { project_id: projectId, id, content });
+      await invoke('update_context_note', { args: { project_id: projectId, id, content } });
       await get().loadContextNotes(projectId);
     } catch (error) {
       console.error('Failed to update context note:', error);
@@ -355,7 +355,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   removeContextNote: async (projectId: string, id: string) => {
     try {
-      await invoke('remove_context_note', { project_id: projectId, id });
+      await invoke('remove_context_note', { args: { project_id: projectId, id } });
       await get().loadContextNotes(projectId);
     } catch (error) {
       console.error('Failed to remove context note:', error);
@@ -364,7 +364,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   moveContextNote: async (projectId: string, id: string, position: number) => {
     try {
-      await invoke('move_context_note', { project_id: projectId, id, position });
+      await invoke('move_context_note', { args: { project_id: projectId, id, position } });
       await get().loadContextNotes(projectId);
     } catch (error) {
       console.error('Failed to move context note:', error);
@@ -398,7 +398,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
   // Remove a context file
   removeContextFile: async (projectId: string, id: string, path: string) => {
     try {
-      await invoke('remove_context_file', { project_id: projectId, path });
+      await invoke('remove_context_file', { args: { project_id: projectId, path } });
       
       set((state) => ({
         contextFiles: state.contextFiles.filter((f) => f.id !== id)
@@ -472,7 +472,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
     try {
       console.log('[Store] Loading todos for project:', projectId);
       invoke('debug_log_cmd', { msg: `[Store] loadTodos START projectId=${projectId}` });
-      const todos = await invoke<TodoItem[]>('list_todos', { project_id: projectId });
+      const todos = await invoke<TodoItem[]>('list_todos', { args: { project_id: projectId || 'default' } });
       invoke('debug_log_cmd', { msg: `[Store] loadTodos DONE projectId=${projectId} count=${todos.length}` });
       console.log('[Store] Loaded', todos.length, 'todos for project:', projectId);
       console.log('[Store] Loaded', todos.length, 'todos for project:', projectId);
@@ -483,6 +483,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to load todos:', error);
+      invoke('debug_log_cmd', { msg: `[Store] loadTodos ERROR projectId=${projectId} error=${error}` });
       set((state) => {
         const newMap = new Map(state.todosByProject);
         newMap.set(projectId, []);
@@ -493,7 +494,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   addTodo: async (projectId: string, title: string, description?: string) => {
     try {
-      await invoke<TodoItem>('add_todo', { project_id: projectId, title, description });
+      await invoke<TodoItem>('add_todo', { args: { project_id: projectId, title, description } });
       await get().loadTodos(projectId);
     } catch (error) {
       console.error('Failed to add todo:', error);
@@ -502,7 +503,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   setTodoCompleted: async (projectId: string, id: string, completed: boolean) => {
     try {
-      await invoke('set_todo_completed', { project_id: projectId, id, completed });
+      await invoke('set_todo_completed', { args: { project_id: projectId, id, completed } });
       await get().loadTodos(projectId);
     } catch (error) {
       console.error('Failed to update todo:', error);
@@ -511,7 +512,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   removeTodo: async (projectId: string, id: string) => {
     try {
-      await invoke('remove_todo', { project_id: projectId, id });
+      await invoke('remove_todo', { args: { project_id: projectId, id } });
       await get().loadTodos(projectId);
     } catch (error) {
       console.error('Failed to remove todo:', error);

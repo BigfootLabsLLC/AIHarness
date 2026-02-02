@@ -49,12 +49,22 @@ pub mod projects;
 pub mod todos;
 pub mod tools;
 
+#[cfg(test)]
+mod tests;
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{Manager, Emitter};
 use tokio::sync::RwLock;
 
 pub use app_state::AppState;
+
+/// Common arguments struct for project-scoped commands
+#[derive(Debug, Deserialize)]
+struct ProjectArgs {
+    #[serde(default)]
+    project_id: Option<String>,
+}
 
 /// Tool call event for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -369,10 +379,9 @@ async fn create_project(
 #[tauri::command]
 async fn list_todos(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
+    args: ProjectArgs,
 ) -> Result<Vec<TodoItemInfo>, String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
-    
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     debug_log(&format!("=== list_todos START === project_id={}", project_id));
     
     let store = {
@@ -413,15 +422,24 @@ async fn list_todos(
     Ok(items)
 }
 
-#[tauri::command]
-async fn add_todo(
-    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+#[derive(Debug, Deserialize)]
+struct AddTodoArgs {
     title: String,
     description: Option<String>,
     position: Option<i64>,
+    #[serde(default)]
     project_id: Option<String>,
+}
+
+#[tauri::command]
+async fn add_todo(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    args: AddTodoArgs,
 ) -> Result<TodoItemInfo, String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
+    let title = args.title;
+    let description = args.description;
+    let position = args.position;
     let store = {
         let state_read = state.read().await;
         state_read
@@ -447,14 +465,22 @@ async fn add_todo(
     Ok(info)
 }
 
+#[derive(Debug, Deserialize)]
+struct SetTodoCompletedArgs {
+    id: String,
+    completed: bool,
+    #[serde(default)]
+    project_id: Option<String>,
+}
+
 #[tauri::command]
 async fn set_todo_completed(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    id: String,
-    completed: bool,
-    project_id: Option<String>,
+    args: SetTodoCompletedArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
+    let id = args.id;
+    let completed = args.completed;
     let store = {
         let state_read = state.read().await;
         state_read
@@ -472,13 +498,20 @@ async fn set_todo_completed(
     result
 }
 
+#[derive(Debug, Deserialize)]
+struct RemoveTodoArgs {
+    id: String,
+    #[serde(default)]
+    project_id: Option<String>,
+}
+
 #[tauri::command]
 async fn remove_todo(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    id: String,
-    project_id: Option<String>,
+    args: RemoveTodoArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
+    let id = args.id;
     let store = {
         let state_read = state.read().await;
         state_read
@@ -590,14 +623,20 @@ async fn add_context_file(
     })
 }
 
+#[derive(Debug, Deserialize)]
+struct RemoveContextFileArgs {
+    path: String,
+    #[serde(default)]
+    project_id: Option<String>,
+}
+
 /// Remove context file
 #[tauri::command]
 async fn remove_context_file(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    path: String,
-    project_id: Option<String>,
+    args: RemoveContextFileArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read
@@ -606,7 +645,7 @@ async fn remove_context_file(
             .map_err(|e| e.to_string())?
     };
     let store = store.context_store.read().await;
-    store.remove_file(&path).await.map_err(|e| e.to_string())
+    store.remove_file(&args.path).await.map_err(|e| e.to_string())
 }
 
 /// List context files
@@ -691,15 +730,21 @@ async fn add_context_note(
     Ok(context_note_info_from(note))
 }
 
+#[derive(Debug, Deserialize)]
+struct UpdateContextNoteArgs {
+    #[serde(default)]
+    project_id: Option<String>,
+    id: String,
+    content: String,
+}
+
 /// Update context note
 #[tauri::command]
 async fn update_context_note(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
-    id: String,
-    content: String,
+    args: UpdateContextNoteArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read
@@ -708,17 +753,23 @@ async fn update_context_note(
             .map_err(|e| e.to_string())?
     };
     let store = store.context_note_store.read().await;
-    store.update(&id, &content).await.map_err(|e| e.to_string())
+    store.update(&args.id, &args.content).await.map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+struct RemoveContextNoteArgs {
+    #[serde(default)]
+    project_id: Option<String>,
+    id: String,
 }
 
 /// Remove context note
 #[tauri::command]
 async fn remove_context_note(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
-    id: String,
+    args: RemoveContextNoteArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read
@@ -727,18 +778,24 @@ async fn remove_context_note(
             .map_err(|e| e.to_string())?
     };
     let store = store.context_note_store.read().await;
-    store.remove(&id).await.map_err(|e| e.to_string())
+    store.remove(&args.id).await.map_err(|e| e.to_string())
 }
 
 /// Move context note
-#[tauri::command]
-async fn move_context_note(
-    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+#[derive(Debug, Deserialize)]
+struct MoveContextNoteArgs {
+    #[serde(default)]
     project_id: Option<String>,
     id: String,
     position: i64,
+}
+
+#[tauri::command]
+async fn move_context_note(
+    state: tauri::State<'_, Arc<RwLock<AppState>>>,
+    args: MoveContextNoteArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read
@@ -747,7 +804,7 @@ async fn move_context_note(
             .map_err(|e| e.to_string())?
     };
     let store = store.context_note_store.read().await;
-    store.move_to(&id, position).await.map_err(|e| e.to_string())
+    store.move_to(&args.id, args.position).await.map_err(|e| e.to_string())
 }
 
 fn context_note_info_from(note: crate::context_notes::ContextNote) -> ContextNoteInfo {
@@ -807,14 +864,20 @@ async fn add_build_command(
     Ok(build_command_info_from(command))
 }
 
+#[derive(Debug, Deserialize)]
+struct RemoveBuildCommandArgs {
+    #[serde(default)]
+    project_id: Option<String>,
+    id: String,
+}
+
 /// Remove build command
 #[tauri::command]
 async fn remove_build_command(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
-    id: String,
+    args: RemoveBuildCommandArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read
@@ -823,17 +886,25 @@ async fn remove_build_command(
             .map_err(|e| e.to_string())?
     };
     let store = store.build_command_store.read().await;
-    store.remove(&id).await.map_err(|e| e.to_string())
+    store.remove(&args.id).await.map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+struct RunBuildCommandArgs {
+    #[serde(default)]
+    project_id: Option<String>,
+    id: String,
 }
 
 /// Run build command
 #[tauri::command]
 async fn run_build_command(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
-    id: String,
+    args: RunBuildCommandArgs,
 ) -> Result<String, String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
+    let id = args.id;
+    debug_log(&format!("=== run_build_command START === project_id={} command_id={}", project_id, id));
     let (command, root_path) = {
         let state_read = state.read().await;
         let project = state_read
@@ -856,20 +927,30 @@ async fn run_build_command(
             .working_dir
             .clone()
             .unwrap_or_else(|| project.root_path.clone());
+        debug_log(&format!("run_build_command: project_id={} command='{}' working_dir='{}'", 
+            project_id, command.command, working_dir));
         (command.command, working_dir)
     };
 
-    run_shell_command(&command, &root_path).await
+    let result = run_shell_command(&command, &root_path).await;
+    debug_log(&format!("=== run_build_command END === project_id={} result={:?}", project_id, result.is_ok()));
+    result
+}
+
+#[derive(Debug, Deserialize)]
+struct SetDefaultBuildCommandArgs {
+    #[serde(default)]
+    project_id: Option<String>,
+    id: String,
 }
 
 /// Set default build command
 #[tauri::command]
 async fn set_default_build_command(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
-    id: String,
+    args: SetDefaultBuildCommandArgs,
 ) -> Result<(), String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read
@@ -878,16 +959,22 @@ async fn set_default_build_command(
             .map_err(|e| e.to_string())?
     };
     let store = store.build_command_store.read().await;
-    store.set_default(&id).await.map_err(|e| e.to_string())
+    store.set_default(&args.id).await.map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+struct GetDefaultBuildCommandArgs {
+    #[serde(default)]
+    project_id: Option<String>,
 }
 
 /// Get default build command
 #[tauri::command]
 async fn get_default_build_command(
     state: tauri::State<'_, Arc<RwLock<AppState>>>,
-    project_id: Option<String>,
+    args: GetDefaultBuildCommandArgs,
 ) -> Result<Option<BuildCommandInfo>, String> {
-    let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    let project_id = args.project_id.unwrap_or_else(|| "default".to_string());
     let store = {
         let state_read = state.read().await;
         state_read

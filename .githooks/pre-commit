@@ -1,0 +1,16 @@
+#!/bin/bash
+# Pre-commit hook to run contract tests
+# Install with: git config core.hooksPath .githooks
+
+echo "Running contract tests..."
+cd AIHarness/src-tauri || exit 1
+
+cargo test contract_tests --quiet
+if [ $? -ne 0 ]; then
+    echo "❌ Contract tests failed! Fix serialization issues before committing."
+    echo "See: https://github.com/tauri-apps/tauri/issues/（serialization issue reference）"
+    exit 1
+fi
+
+echo "✅ Contract tests passed"
+exit 0

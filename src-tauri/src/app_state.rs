@@ -59,6 +59,26 @@ impl AppState {
         })
     }
     
+    /// Create app state for tests (no default project setup)
+    #[cfg(test)]
+    pub async fn new_for_test(project_registry: ProjectRegistry) -> Self {
+        let project_stores = ProjectStoreCache::new();
+        let port = 8787;
+        let tool_registry = create_standard_registry(port);
+        let event_history = RwLock::new(Vec::new());
+        let (event_sender, _) = broadcast::channel(100);
+        
+        Self {
+            project_registry,
+            project_stores,
+            tool_registry,
+            event_history,
+            event_sender,
+            http_server: RwLock::new(None),
+            http_port: RwLock::new(port),
+        }
+    }
+    
     /// Record a tool call event
     pub async fn record_event(&self, event: ToolCallEvent) {
         // Add to history
