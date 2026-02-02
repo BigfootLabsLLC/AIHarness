@@ -3,9 +3,11 @@ import type { ReactNode } from 'react';
 import type { BuildCommand, DirectoryEntry, DirectoryListing, ToolCall, McpConfigResult, McpToolInfo } from './types';
 import { useServerStore } from './stores/serverStore';
 import { open } from '@tauri-apps/plugin-dialog';
-import { TodoPanel } from './components/TodoPanel';
+import { ProjectProvider, useCurrentProject } from './contexts/ProjectContext';
+import { useTodos } from './hooks/useTodos';
+import { TodoPanelSimple } from './components/TodoPanelSimple';
 
-function App() {
+function AppInner() {
   const {
     status,
     port,
@@ -35,25 +37,12 @@ function App() {
     executeTool,
   } = useServerStore();
   
-  const [activeProject, setActiveProjectState] = useState('default');
+  // Use the new project context
+  const { currentProject, currentProjectId: activeProject, setCurrentProjectId: setActiveProject } = useCurrentProject();
+  const { activeCount: todoActiveCount } = useTodos();
   
-  // Get build commands for the current project (must be after activeProject declaration)
+  // Get build commands for the current project
   const buildCommands = getBuildCommands(activeProject);
-  
-  // Restore last project on mount (only once)
-  useEffect(() => {
-    const saved = localStorage.getItem('aiharness_last_project');
-    if (saved) {
-      setActiveProjectState(saved);
-    }
-  }, []);
-  
-  // Persist active project to localStorage when it changes
-  useEffect(() => {
-    if (activeProject) {
-      localStorage.setItem('aiharness_last_project', activeProject);
-    }
-  }, [activeProject]);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectDraft, setProjectDraft] = useState({ name: '', rootPath: '' });
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -74,10 +63,7 @@ function App() {
   );
   const recentToolCalls = useMemo(() => filteredToolCalls.slice(0, 6), [filteredToolCalls]);
   const recentContext = useMemo(() => contextFiles.slice(0, 6), [contextFiles]);
-  const activeProjectInfo = useMemo(
-    () => projects.find((project) => project.id === activeProject) ?? null,
-    [projects, activeProject],
-  );
+  // currentProject is now from useCurrentProject() hook above
   const buildOutputs = useMemo(
     () => buildOutputsByProject[activeProject] ?? [],
     [buildOutputsByProject, activeProject],
@@ -115,7 +101,7 @@ function App() {
     if (hasAutoSwitchedRef.current) return;
     if (projects.length > 0 && !projects.some((p) => p.id === activeProject)) {
       hasAutoSwitchedRef.current = true;
-      setActiveProjectState(projects[0].id);
+      setActiveProject(projects[0].id);
     }
   }, [projects, activeProject]);
 
@@ -137,8 +123,8 @@ function App() {
   }, [activeProject]);  // Only depend on activeProject to prevent loops
 
   useEffect(() => {
-    if (!activeProjectInfo) return;
-    const root = activeProjectInfo.root_path;
+    if (!currentProject) return;
+    const root = currentProject.root_path;
     setProjectTree({});
     setProjectExpanded({ [root]: true });
     listProjectDirectory(activeProject, '').then((listing) => {
@@ -147,7 +133,7 @@ function App() {
         setProjectTree({ [root]: listing });
       }
     });
-  }, [activeProjectInfo, activeProject, listProjectDirectory]);
+  }, [currentProject, activeProject, listProjectDirectory]);
 
   // System file browser starts at home directory
   useEffect(() => {
@@ -197,7 +183,7 @@ function App() {
   };
 
   const toggleProjectEntry = async (entry: DirectoryEntry) => {
-    if (!activeProjectInfo) return;
+    if (!currentProject) return;
     if (!entry.is_dir) {
       void openFile(entry);
       return;
@@ -206,7 +192,7 @@ function App() {
     setProjectExpanded((prev) => ({ ...prev, [entry.path]: !prev[entry.path] }));
     // Only load if expanding and not already loaded
     if (!isCurrentlyExpanded && !projectTree[entry.path]) {
-      const subPath = relativeSubPath(activeProjectInfo.root_path, entry.path);
+      const subPath = relativeSubPath(currentProject.root_path, entry.path);
       const listing = await listProjectDirectory(activeProject, subPath);
       if (listing) {
         // Use entry.path (the path we requested) not listing.path (canonicalized)
@@ -271,7 +257,7 @@ function App() {
       setProjectError(result.error ?? 'Failed to create project.');
       return;
     }
-    setActiveProjectState(result.project.id);
+    setActiveProject(result.project.id);
     closeProjectModal();
   };
 
@@ -331,20 +317,20 @@ function App() {
             <span className="status-text">{status}</span>
             <span className="status-port">:{port}</span>
           </div>
-          {activeProjectInfo && (
-            <div className="project-chip" title={activeProjectInfo.root_path}>
+          {currentProject && (
+            <div className="project-chip" title={currentProject.root_path}>
               <span className="project-chip__label">Project</span>
-              <span className="project-chip__name">{activeProjectInfo.name}</span>
-              <span className="project-chip__path">{activeProjectInfo.root_path}</span>
+              <span className="project-chip__name">{currentProject.name}</span>
+              <span className="project-chip__path">{currentProject.root_path}</span>
             </div>
           )}
         </div>
         <div className="app-topbar__actions">
           <button
             className="toolbar-button"
-            disabled={!activeProjectInfo}
+            disabled={!currentProject}
             onClick={async () => {
-              if (!activeProjectInfo) return;
+              if (!currentProject) return;
               const tools = await getMcpSupportedTools();
               setMcpTools(tools);
               setMcpResults([]);
@@ -391,7 +377,7 @@ function App() {
             <button
               key={project.id}
               className={`project-tab ${activeProject === project.id ? 'active' : ''}`}
-              onClick={() => setActiveProjectState(project.id)}
+              onClick={() => setActiveProject(project.id)}
             >
               {project.name}
             </button>
@@ -443,7 +429,7 @@ function App() {
               <div className="stack">
                 {filePanelTab === 'project' ? (
                   <FileTree
-                    rootPath={activeProjectInfo?.root_path ?? ''}
+                    rootPath={currentProject?.root_path ?? ''}
                     listings={projectTree}
                     expanded={projectExpanded}
                     onToggle={toggleProjectEntry}
@@ -468,10 +454,8 @@ function App() {
               </div>
             </PanelShell>
 
-            <PanelShell title={`Todo Queue`} tabs={[activeProjectInfo?.name ?? 'No Project']}>
-              <TodoPanel
-                projectId={activeProject}
-                projectName={activeProjectInfo?.name ?? 'Unknown'}
+            <PanelShell title={`Todo Queue (${todoActiveCount})`} tabs={[currentProject?.name ?? 'No Project']}>
+              <TodoPanelSimple
                 onViewAll={() => {
                   const nextTab: MainTab = {
                     id: `todos-${activeProject}`,
@@ -630,16 +614,16 @@ function App() {
             {/* Debug Panel */}
             <PanelShell title="Debug Info" tabs={['Project']}>
               <div className="stack" style={{ fontSize: '10px', fontFamily: 'monospace' }}>
-                {activeProjectInfo ? (
+                {currentProject ? (
                   <>
                     <div><strong>Project ID:</strong></div>
-                    <div style={{ wordBreak: 'break-all' }}>{activeProjectInfo.id}</div>
+                    <div style={{ wordBreak: 'break-all' }}>{currentProject.id}</div>
                     <div style={{ marginTop: '8px' }}><strong>Name:</strong></div>
-                    <div>{activeProjectInfo.name}</div>
+                    <div>{currentProject.name}</div>
                     <div style={{ marginTop: '8px' }}><strong>Root Path:</strong></div>
-                    <div style={{ wordBreak: 'break-all' }}>{activeProjectInfo.root_path}</div>
+                    <div style={{ wordBreak: 'break-all' }}>{currentProject.root_path}</div>
                     <div style={{ marginTop: '8px' }}><strong>DB Path:</strong></div>
-                    <div style={{ wordBreak: 'break-all', color: '#0b8d80' }}>{activeProjectInfo.db_path}</div>
+                    <div style={{ wordBreak: 'break-all', color: '#0b8d80' }}>{currentProject.db_path}</div>
                     <div style={{ marginTop: '8px' }}><strong>Todos in Cache:</strong></div>
                     <div>{useServerStore.getState().todosByProject.get(activeProject)?.length ?? 0} items</div>
                     <div style={{ marginTop: '4px', fontSize: '9px' }}>
@@ -670,21 +654,21 @@ function App() {
           onSubmit={submitProject}
         />
       )}
-      {isMcpModalOpen && activeProjectInfo && (
+      {isMcpModalOpen && currentProject && (
         <McpConfigModal
-          projectName={activeProjectInfo.name}
+          projectName={currentProject.name}
           tools={mcpTools}
           results={mcpResults}
           isConfiguring={isMcpConfiguring}
           onConfigureAll={async () => {
             setIsMcpConfiguring(true);
-            const results = await configureMcpForAllTools(activeProjectInfo.id);
+            const results = await configureMcpForAllTools(currentProject.id);
             setMcpResults(results);
             setIsMcpConfiguring(false);
           }}
           onConfigureOne={async (tool: string) => {
             setIsMcpConfiguring(true);
-            const result = await configureMcpForTool(tool, activeProjectInfo.id);
+            const result = await configureMcpForTool(tool, currentProject.id);
             setMcpResults((prev) => [...prev, result]);
             setIsMcpConfiguring(false);
           }}
@@ -695,7 +679,7 @@ function App() {
   );
 }
 
-export default App;
+// Old export removed - now wrapped below
 
 function PanelShell({
   title,
@@ -1258,5 +1242,15 @@ function McpConfigModal({
         </div>
       </div>
     </div>
+  );
+}
+
+
+// Wrapper component that provides ProjectContext
+export default function App() {
+  return (
+    <ProjectProvider>
+      <AppInner />
+    </ProjectProvider>
   );
 }
