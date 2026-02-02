@@ -82,17 +82,17 @@ impl AppState {
     }
 
     pub async fn get_project_store(&self, project_id: &str) -> Result<Arc<ProjectStore>, ContextError> {
-        tracing::info!("get_project_store: START project_id={}", project_id);
+        crate::debug_log(&format!("get_project_store: START project_id={}", project_id));
         
         if let Some(store) = self.project_stores.get(project_id).await {
-            tracing::info!(
-                "get_project_store: CACHE HIT project_id={} db_path={} ptr={:?}",
-                project_id, store.info.db_path, Arc::as_ptr(&store)
-            );
+            crate::debug_log(&format!(
+                "get_project_store: CACHE HIT project_id={} db_path={}",
+                project_id, store.info.db_path
+            ));
             return Ok(store);
         }
 
-        tracing::info!("get_project_store: CACHE MISS project_id={}", project_id);
+        crate::debug_log(&format!("get_project_store: CACHE MISS project_id={}", project_id));
         
         let project = self
             .project_registry
@@ -100,17 +100,17 @@ impl AppState {
             .await?
             .ok_or_else(|| ContextError::NotInContext(project_id.to_string()))?;
 
-        tracing::info!(
+        crate::debug_log(&format!(
             "get_project_store: CREATING project_id={} db_path={}",
             project_id, project.db_path
-        );
+        ));
 
         let store = Arc::new(ProjectStore::new(project).await?);
         
-        tracing::info!(
-            "get_project_store: INSERTING project_id={} db_path={} ptr={:?}",
-            project_id, store.info.db_path, Arc::as_ptr(&store)
-        );
+        crate::debug_log(&format!(
+            "get_project_store: INSERTING project_id={} db_path={}",
+            project_id, store.info.db_path
+        ));
         
         self.project_stores.insert(store.clone()).await;
         Ok(store)

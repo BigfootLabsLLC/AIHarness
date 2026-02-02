@@ -7,6 +7,30 @@
 
 #![warn(clippy::all, clippy::pedantic)]
 
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::Mutex;
+
+/// Simple file logger for debugging
+static DEBUG_LOG: Mutex<Option<std::fs::File>> = Mutex::new(None);
+
+pub fn debug_log(msg: &str) {
+    let path = "/Users/danbaker/Projects/AIHarness/aiharness_debug.log";
+    let mut guard = DEBUG_LOG.lock().unwrap();
+    if guard.is_none() {
+        *guard = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok();
+    }
+    if let Some(file) = guard.as_mut() {
+        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        let _ = writeln!(file, "[{}] {}", timestamp, msg);
+        let _ = file.flush();
+    }
+}
+
 pub mod app_state;
 pub mod build_commands;
 pub mod context;
@@ -344,7 +368,7 @@ async fn list_todos(
 ) -> Result<Vec<TodoItemInfo>, String> {
     let project_id = project_id.unwrap_or_else(|| "default".to_string());
     
-    tracing::info!("=== list_todos START === project_id={}", project_id);
+    debug_log(&format!("=== list_todos START === project_id={}", project_id));
     
     let store = {
         let state_read = state.read().await;
@@ -354,10 +378,10 @@ async fn list_todos(
             .map_err(|e| e.to_string())?
     };
     
-    tracing::info!(
-        "list_todos: GOT STORE project_id={} db_path={} store_addr={:?}",
-        project_id, store.info.db_path, Arc::as_ptr(&store)
-    );
+    debug_log(&format!(
+        "list_todos: GOT STORE project_id={} db_path={}",
+        project_id, store.info.db_path
+    ));
     
     let todos = store
         .todo_store
@@ -369,10 +393,16 @@ async fn list_todos(
     
     // Log each todo
     for todo in &todos {
-        tracing::info!("list_todos: project_id={} todo_id={} title={}", project_id, todo.id, todo.title);
+        debug_log(&format!(
+            "list_todos: project_id={} todo_id={} title={}",
+            project_id, todo.id, todo.title
+        ));
     }
     
-    tracing::info!("=== list_todos END === project_id={} count={}", project_id, todos.len());
+    debug_log(&format!(
+        "=== list_todos END === project_id={} count={}",
+        project_id, todos.len()
+    ));
     
     let items = todos.into_iter().map(todo_info_from).collect();
     Ok(items)
