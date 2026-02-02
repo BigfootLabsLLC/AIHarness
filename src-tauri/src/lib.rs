@@ -343,6 +343,9 @@ async fn list_todos(
     project_id: Option<String>,
 ) -> Result<Vec<TodoItemInfo>, String> {
     let project_id = project_id.unwrap_or_else(|| "default".to_string());
+    
+    tracing::info!("=== list_todos START === project_id={}", project_id);
+    
     let store = {
         let state_read = state.read().await;
         state_read
@@ -351,10 +354,9 @@ async fn list_todos(
             .map_err(|e| e.to_string())?
     };
     
-    // Debug logging
     tracing::info!(
-        "list_todos: project_id={}, db_path={}",
-        project_id, store.info.db_path
+        "list_todos: GOT STORE project_id={} db_path={} store_addr={:?}",
+        project_id, store.info.db_path, Arc::as_ptr(&store)
     );
     
     let todos = store
@@ -365,7 +367,12 @@ async fn list_todos(
         .await
         .map_err(|e| e.to_string())?;
     
-    tracing::info!("list_todos: found {} todos for project {}", todos.len(), project_id);
+    // Log each todo
+    for todo in &todos {
+        tracing::info!("list_todos: project_id={} todo_id={} title={}", project_id, todo.id, todo.title);
+    }
+    
+    tracing::info!("=== list_todos END === project_id={} count={}", project_id, todos.len());
     
     let items = todos.into_iter().map(todo_info_from).collect();
     Ok(items)

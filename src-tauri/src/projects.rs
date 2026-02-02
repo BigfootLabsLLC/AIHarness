@@ -169,19 +169,29 @@ pub struct ProjectStore {
 
 impl ProjectStore {
     pub async fn new(info: ProjectInfo) -> Result<Self, ContextError> {
+        tracing::info!("ProjectStore::new() START project_id={} db_path={}", info.id, info.db_path);
+        
         let context_store = ContextStore::new(&info.db_path).await?;
         let context_note_store = ContextNoteStore::new(&info.db_path).await?;
         let next_session_store = NextSessionBriefingStore::new(&info.db_path).await?;
         let build_command_store = BuildCommandStore::new(&info.db_path).await?;
         let todo_store = TodoStore::new(&info.db_path).await?;
-        Ok(Self {
-            info,
+        
+        let store = Self {
+            info: info.clone(),
             context_store: Arc::new(RwLock::new(context_store)),
             context_note_store: Arc::new(RwLock::new(context_note_store)),
             next_session_store: Arc::new(RwLock::new(next_session_store)),
             build_command_store: Arc::new(RwLock::new(build_command_store)),
             todo_store: Arc::new(RwLock::new(todo_store)),
-        })
+        };
+        
+        tracing::info!(
+            "ProjectStore::new() END project_id={} db_path={} todo_store_ptr={:?}",
+            info.id, info.db_path, Arc::as_ptr(&store.todo_store)
+        );
+        
+        Ok(store)
     }
 }
 

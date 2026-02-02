@@ -21,10 +21,12 @@ pub struct TodoStore {
 
 impl TodoStore {
     pub async fn new(db_path: &str) -> Result<Self, ContextError> {
+        tracing::info!("TodoStore::new() db_path={} self_ptr={:?}", db_path, &db_path as *const _);
         let store = Self {
             db_path: db_path.to_string(),
         };
         store.init_schema().await?;
+        tracing::info!("TodoStore::new() DONE db_path={} self_ptr={:?}", store.db_path, &store as *const _);
         Ok(store)
     }
 
@@ -56,7 +58,13 @@ impl TodoStore {
     }
 
     pub async fn list(&self) -> Result<Vec<TodoItem>, ContextError> {
-        tracing::info!("TodoStore::list() db_path={}", self.db_path);
+        let db_path = &self.db_path;
+        tracing::info!("TodoStore::list() db_path={} self_ptr={:?}", db_path, self as *const Self);
+        
+        // Verify the DB file exists
+        let path_exists = std::path::Path::new(db_path).exists();
+        tracing::info!("TodoStore::list() db_path={} exists={}", db_path, path_exists);
+        
         let db = self.get_db()?;
         let mut stmt = db.prepare(
             "SELECT id, title, description, completed, position, created_at, updated_at
