@@ -96,3 +96,10 @@ Read the briefing notes for the next session.
 Update the briefing notes for the next session.
 - **Arguments:**
   - `content` (string): The briefing content.
+
+## System Tools
+
+### `system_self_test`
+Runs a comprehensive self-diagnostic of the AIHarness system.
+- **Arguments:**
+  - `project_path` (string, optional): Path to verify write permissions.

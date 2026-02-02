@@ -10,6 +10,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub mod file;
+pub mod test;
 
 /// The result of executing a tool
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,13 +152,14 @@ impl ToolRegistry {
 
 /// Create a standard tool registry with all built-in tools
 #[must_use]
-pub fn create_standard_registry() -> ToolRegistry {
+pub fn create_standard_registry(port: u16) -> ToolRegistry {
     let mut registry = ToolRegistry::new();
     
     registry.register(Box::new(file::ReadFileTool));
     registry.register(Box::new(file::WriteFileTool));
     registry.register(Box::new(file::ListDirectoryTool));
     registry.register(Box::new(file::SearchFilesTool));
+    registry.register(Box::new(test::SelfTestTool { port }));
     
     registry
 }
@@ -263,7 +265,7 @@ mod tests {
 
     #[test]
     fn create_standard_registry_has_expected_tools() {
-        let registry = create_standard_registry();
+        let registry = create_standard_registry(8080);
         assert!(registry.has("read_file"));
         assert!(registry.has("write_file"));
         assert!(registry.has("list_directory"));

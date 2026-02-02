@@ -43,7 +43,8 @@ impl AppState {
         let project_stores = ProjectStoreCache::new();
         ensure_default_project(&project_registry, &project_stores, app_data_dir).await?;
         
-        let tool_registry = create_standard_registry();
+        let port = 8787;
+        let tool_registry = create_standard_registry(port);
         let event_history = RwLock::new(Vec::new());
         let (event_sender, _) = broadcast::channel(100);
         
@@ -54,7 +55,7 @@ impl AppState {
             event_history,
             event_sender,
             http_server: RwLock::new(None),
-            http_port: RwLock::new(8787),
+            http_port: RwLock::new(port),
         })
     }
     

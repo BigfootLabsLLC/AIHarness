@@ -141,13 +141,25 @@ function App() {
     setCurrentProject,
   ]);
 
+  // Reload todos when a todo tool is called for the current project
   useEffect(() => {
     if (toolCalls.length === 0) return;
     const latest = toolCalls[0];
     if (latest.project_id === activeProject && latest.tool_name.startsWith('todo_')) {
+      console.log('[Todo] Reloading todos after tool call:', latest.tool_name);
       loadTodos(activeProject);
     }
   }, [toolCalls, activeProject, loadTodos]);
+  
+  // Also reload todos when the active project changes (clear first, then load)
+  useEffect(() => {
+    console.log('[Todo] Project changed to:', activeProject);
+    // Clear todos immediately to avoid showing previous project's data
+    useServerStore.setState({ todos: [] });
+    if (activeProject) {
+      loadTodos(activeProject);
+    }
+  }, [activeProject, loadTodos]);
 
   useEffect(() => {
     if (!activeProjectInfo) return;
@@ -481,7 +493,7 @@ function App() {
               </div>
             </PanelShell>
 
-            <PanelShell title={`Todo Queue (${todos.filter(t => !t.completed).length})`} tabs={['Active']}>
+            <PanelShell title={`Todo Queue (${todos.filter(t => !t.completed).length})`} tabs={[`Project: ${activeProject.slice(0, 8)}...`]}>
               <div className="stack" style={{ gap: '4px' }}>
                 {/* Add new todo */}
                 <div className="todo-input-row">
