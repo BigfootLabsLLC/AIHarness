@@ -117,49 +117,34 @@ function App() {
     }
   }, [projects, activeProject]);
 
+  // Main project switch effect - load all project-specific data
   useEffect(() => {
+    console.log('[Project] Switching to:', activeProject);
     setDefaultBuild(null);
     setTabs([{ id: 'workspace', title: 'Workspace', kind: 'home' }]);
     setActiveTab({ id: 'workspace', title: 'Workspace', kind: 'home' });
     setCurrentProject(activeProject);
     resetProjectData();
+    
+    // Load all project data
     loadToolHistory(activeProject);
     loadContextFilesForProject(activeProject);
     loadContextNotes(activeProject);
     loadTodos(activeProject);
     loadBuildCommands(activeProject);
     getDefaultBuildCommand(activeProject).then(setDefaultBuild);
-  }, [
-    activeProject,
-    loadToolHistory,
-    loadContextFilesForProject,
-    loadContextNotes,
-    loadTodos,
-    loadBuildCommands,
-    getDefaultBuildCommand,
-    resetProjectData,
-    setCurrentProject,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject]);  // Only depend on activeProject to prevent loops
 
   // Reload todos when a todo tool is called for the current project
   useEffect(() => {
     if (toolCalls.length === 0) return;
     const latest = toolCalls[0];
     if (latest.project_id === activeProject && latest.tool_name.startsWith('todo_')) {
-      console.log('[Todo] Reloading todos after tool call:', latest.tool_name);
+      console.log('[Todo] Reloading after tool call:', latest.tool_name);
       loadTodos(activeProject);
     }
   }, [toolCalls, activeProject, loadTodos]);
-  
-  // Also reload todos when the active project changes (clear first, then load)
-  useEffect(() => {
-    console.log('[Todo] Project changed to:', activeProject);
-    // Clear todos immediately to avoid showing previous project's data
-    useServerStore.setState({ todos: [] });
-    if (activeProject) {
-      loadTodos(activeProject);
-    }
-  }, [activeProject, loadTodos]);
 
   useEffect(() => {
     if (!activeProjectInfo) return;
@@ -493,7 +478,7 @@ function App() {
               </div>
             </PanelShell>
 
-            <PanelShell title={`Todo Queue (${todos.filter(t => !t.completed).length})`} tabs={[`Project: ${activeProject.slice(0, 8)}...`]}>
+            <PanelShell title={`Todo Queue (${todos.filter(t => !t.completed).length})`} tabs={[activeProjectInfo?.name ?? 'No Project']}>
               <div className="stack" style={{ gap: '4px' }}>
                 {/* Add new todo */}
                 <div className="todo-input-row">
