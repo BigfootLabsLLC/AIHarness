@@ -150,7 +150,8 @@ function App() {
     setProjectExpanded({ [root]: true });
     listProjectDirectory(activeProject, '').then((listing) => {
       if (listing) {
-        setProjectTree({ [listing.path]: listing });
+        // Use the root path we know (not canonicalized path from backend)
+        setProjectTree({ [root]: listing });
       }
     });
   }, [activeProjectInfo, activeProject, listProjectDirectory]);
@@ -170,7 +171,8 @@ function App() {
     setSystemExpanded({ [systemRoot]: true });
     listDirectory(systemRoot).then((listing) => {
       if (listing) {
-        setSystemTree({ [listing.path]: listing });
+        // Use the systemRoot we know (not canonicalized path from backend)
+        setSystemTree({ [systemRoot]: listing });
       }
     });
   }, [systemRoot, listDirectory]);
@@ -212,7 +214,8 @@ function App() {
       const subPath = relativeSubPath(activeProjectInfo.root_path, entry.path);
       const listing = await listProjectDirectory(activeProject, subPath);
       if (listing) {
-        setProjectTree((prev) => ({ ...prev, [listing.path]: listing }));
+        // Use entry.path (the path we requested) not listing.path (canonicalized)
+        setProjectTree((prev) => ({ ...prev, [entry.path]: listing }));
       }
     }
   };
@@ -226,7 +229,8 @@ function App() {
     if (!systemTree[entry.path]) {
       const listing = await listDirectory(entry.path);
       if (listing) {
-        setSystemTree((prev) => ({ ...prev, [listing.path]: listing }));
+        // Use entry.path (the path we requested) not listing.path (canonicalized)
+        setSystemTree((prev) => ({ ...prev, [entry.path]: listing }));
       }
     }
   };
@@ -238,7 +242,8 @@ function App() {
       setSystemRoot(parentPath);
       const listing = await listDirectory(parentPath);
       if (listing) {
-        setSystemTree({ [listing.path]: listing });
+        // Use parentPath (the path we requested) not listing.path (canonicalized)
+        setSystemTree({ [parentPath]: listing });
         setSystemExpanded({ [parentPath]: true });
       }
     }
