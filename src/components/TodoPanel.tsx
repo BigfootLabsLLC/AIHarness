@@ -19,7 +19,7 @@ export function TodoPanel({ projectId, projectName, onViewAll }: TodoPanelProps)
   useEffect(() => {
     console.log('[TodoPanel] Project changed to:', projectId, 'Current todosProjectId:', todosProjectId);
     setIsLoading(true);
-    loadTodos(projectId).finally(() => setIsLoading(false));
+    Promise.resolve(loadTodos(projectId)).finally(() => setIsLoading(false));
   }, [projectId, loadTodos]);
 
   const handleAddTodo = async () => {
