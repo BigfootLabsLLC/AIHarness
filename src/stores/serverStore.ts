@@ -18,7 +18,9 @@ interface ServerState {
   contextNotes: ContextNote[];
   rawLogs: RawLog[];
   todos: TodoItem[];
+  todosProjectId: string | null; // Track which project the todos belong to
   buildCommands: BuildCommand[];
+  buildCommandsProjectId: string | null; // Track which project the build commands belong to
   projects: ProjectInfo[];
   isLoading: boolean;
   
@@ -75,7 +77,9 @@ export const useServerStore = create<ServerState>((set, get) => ({
   contextNotes: [],
   rawLogs: [],
   todos: [],
+  todosProjectId: null,
   buildCommands: [],
+  buildCommandsProjectId: null,
   projects: [],
   isLoading: false,
   
@@ -254,9 +258,10 @@ export const useServerStore = create<ServerState>((set, get) => ({
   loadBuildCommands: async (projectId: string) => {
     try {
       const commands = await invoke<BuildCommand[]>('list_build_commands', { project_id: projectId });
-      set({ buildCommands: commands });
+      set({ buildCommands: commands, buildCommandsProjectId: projectId });
     } catch (error) {
       console.error('Failed to load build commands:', error);
+      set({ buildCommands: [], buildCommandsProjectId: projectId });
     }
   },
 
@@ -453,10 +458,13 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   loadTodos: async (projectId: string) => {
     try {
+      console.log('[Store] Loading todos for project:', projectId);
       const todos = await invoke<TodoItem[]>('list_todos', { project_id: projectId });
-      set({ todos });
+      console.log('[Store] Loaded', todos.length, 'todos for project:', projectId);
+      set({ todos, todosProjectId: projectId });
     } catch (error) {
       console.error('Failed to load todos:', error);
+      set({ todos: [], todosProjectId: projectId });
     }
   },
 
@@ -487,14 +495,15 @@ export const useServerStore = create<ServerState>((set, get) => ({
     }
   },
 
-  resetProjectData: () => set((state) => ({
+  resetProjectData: () => set({
     toolCalls: [],
     contextFiles: [],
     contextNotes: [],
     todos: [],
+    todosProjectId: null,
     buildCommands: [],
-    currentProjectId: state.currentProjectId, // Keep the current project
-  })),
+    buildCommandsProjectId: null,
+  }),
 
   // MCP Config
   getMcpSupportedTools: async () => {

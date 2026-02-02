@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { BuildCommand, DirectoryEntry, DirectoryListing, ToolCall, McpConfigResult, McpToolInfo } from './types';
 import { useServerStore } from './stores/serverStore';
 import { open } from '@tauri-apps/plugin-dialog';
+import { TodoPanel } from './components/TodoPanel';
 
 function App() {
   const {
@@ -11,13 +12,11 @@ function App() {
     toolCalls,
     contextFiles,
     contextNotes,
-    todos,
     buildCommands,
     projects,
     loadToolHistory,
     loadContextFilesForProject,
     loadContextNotes,
-    loadTodos,
     createProject,
     listProjectDirectory,
     listDirectory,
@@ -29,12 +28,11 @@ function App() {
     loadBuildCommands,
     runBuildCommand,
     getDefaultBuildCommand,
-    resetProjectData,
-    executeTool,
     setCurrentProject,
     getMcpSupportedTools,
     configureMcpForTool,
     configureMcpForAllTools,
+    executeTool,
   } = useServerStore();
   const [activeProject, setActiveProjectState] = useState('default');
   
@@ -117,34 +115,22 @@ function App() {
     }
   }, [projects, activeProject]);
 
-  // Main project switch effect - load all project-specific data
+  // Main project switch effect - load project-specific data
   useEffect(() => {
     console.log('[Project] Switching to:', activeProject);
     setDefaultBuild(null);
     setTabs([{ id: 'workspace', title: 'Workspace', kind: 'home' }]);
     setActiveTab({ id: 'workspace', title: 'Workspace', kind: 'home' });
     setCurrentProject(activeProject);
-    resetProjectData();
     
-    // Load all project data
+    // Load project data (todos are loaded by TodoPanel component)
     loadToolHistory(activeProject);
     loadContextFilesForProject(activeProject);
     loadContextNotes(activeProject);
-    loadTodos(activeProject);
     loadBuildCommands(activeProject);
     getDefaultBuildCommand(activeProject).then(setDefaultBuild);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProject]);  // Only depend on activeProject to prevent loops
-
-  // Reload todos when a todo tool is called for the current project
-  useEffect(() => {
-    if (toolCalls.length === 0) return;
-    const latest = toolCalls[0];
-    if (latest.project_id === activeProject && latest.tool_name.startsWith('todo_')) {
-      console.log('[Todo] Reloading after tool call:', latest.tool_name);
-      loadTodos(activeProject);
-    }
-  }, [toolCalls, activeProject, loadTodos]);
 
   useEffect(() => {
     if (!activeProjectInfo) return;
@@ -478,86 +464,21 @@ function App() {
               </div>
             </PanelShell>
 
-            <PanelShell title={`Todo Queue (${todos.filter(t => !t.completed).length})`} tabs={[activeProjectInfo?.name ?? 'No Project']}>
-              <div className="stack" style={{ gap: '4px' }}>
-                {/* Add new todo */}
-                <div className="todo-input-row">
-                  <input
-                    type="text"
-                    placeholder="Add a task..."
-                    className="todo-input"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const input = e.target as HTMLInputElement;
-                        if (input.value.trim()) {
-                          useServerStore.getState().addTodo(activeProject, input.value.trim());
-                          input.value = '';
-                        }
-                      }
-                    }}
-                  />
-                  <button
-                    className="todo-add-btn"
-                    onClick={() => {
-                      const input = document.querySelector('.todo-input') as HTMLInputElement;
-                      if (input?.value.trim()) {
-                        useServerStore.getState().addTodo(activeProject, input.value.trim());
-                        input.value = '';
-                      }
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-                
-                {/* View all link */}
-                {todos.length > 5 && (
-                  <button
-                    className="todo-view-all"
-                    onClick={() => {
-                      const nextTab: MainTab = {
-                        id: `todos-${activeProject}`,
-                        title: 'All Todos',
-                        kind: 'todos',
-                        payload: { projectId: activeProject },
-                      };
-                      setTabs((prev) => addOrReplaceTab(prev, nextTab));
-                      setActiveTab(nextTab);
-                    }}
-                  >
-                    View all {todos.length} tasks →
-                  </button>
-                )}
-                
-                {/* Todo list */}
-                {todos.length === 0 ? (
-                  <div className="empty-state" style={{ fontSize: '11px' }}>No tasks yet.</div>
-                ) : (
-                  todos.slice(0, 8).map((todo) => (
-                    <div key={todo.id} className="todo-item">
-                      <input
-                        type="checkbox"
-                        checked={todo.completed}
-                        onChange={() => {
-                          useServerStore.getState().setTodoCompleted(activeProject, todo.id, !todo.completed);
-                        }}
-                      />
-                      <span className={`todo-text ${todo.completed ? 'completed' : ''}`}>
-                        {todo.title}
-                      </span>
-                      <button
-                        className="todo-remove"
-                        onClick={() => {
-                          useServerStore.getState().removeTodo(activeProject, todo.id);
-                        }}
-                        title="Remove"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
+            <PanelShell title={`Todo Queue`} tabs={[activeProjectInfo?.name ?? 'No Project']}>
+              <TodoPanel
+                projectId={activeProject}
+                projectName={activeProjectInfo?.name ?? 'Unknown'}
+                onViewAll={() => {
+                  const nextTab: MainTab = {
+                    id: `todos-${activeProject}`,
+                    title: 'All Todos',
+                    kind: 'todos',
+                    payload: { projectId: activeProject },
+                  };
+                  setTabs((prev) => addOrReplaceTab(prev, nextTab));
+                  setActiveTab(nextTab);
+                }}
+              />
             </PanelShell>
           </section>
 
