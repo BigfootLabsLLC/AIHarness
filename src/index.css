@@ -947,6 +947,13 @@
     color: var(--ink-700);
   }
 
+  .tree-entry-count {
+    font-size: 10px;
+    color: var(--ink-500);
+    padding: 2px 4px;
+    margin-bottom: 4px;
+  }
+
   .tree-nodes-scrollable {
     max-height: 320px;
     overflow-y: auto;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { BuildCommand, DirectoryEntry, DirectoryListing, ToolCall, McpConfigResult, McpToolInfo } from './types';
 import { useServerStore } from './stores/serverStore';
@@ -38,19 +38,20 @@ function App() {
   } = useServerStore();
   const [activeProject, setActiveProjectState] = useState('default');
   
-  // Persist active project to localStorage
-  const setActiveProject = (projectId: string) => {
-    setActiveProjectState(projectId);
-    localStorage.setItem('aiharness_last_project', projectId);
-  };
-  
-  // Restore last project on mount
+  // Restore last project on mount (only once)
   useEffect(() => {
     const saved = localStorage.getItem('aiharness_last_project');
     if (saved) {
       setActiveProjectState(saved);
     }
   }, []);
+  
+  // Persist active project to localStorage when it changes
+  useEffect(() => {
+    if (activeProject) {
+      localStorage.setItem('aiharness_last_project', activeProject);
+    }
+  }, [activeProject]);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectDraft, setProjectDraft] = useState({ name: '', rootPath: '' });
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -105,9 +106,14 @@ function App() {
     useServerStore.getState().initialize();
   }, []);
 
+  // Only auto-switch to first project on initial load if current project is invalid
+  // Use a ref to prevent infinite loops
+  const hasAutoSwitchedRef = useRef(false);
   useEffect(() => {
+    if (hasAutoSwitchedRef.current) return;
     if (projects.length > 0 && !projects.some((p) => p.id === activeProject)) {
-      setActiveProject(projects[0].id);
+      hasAutoSwitchedRef.current = true;
+      setActiveProjectState(projects[0].id);
     }
   }, [projects, activeProject]);
 
@@ -209,8 +215,10 @@ function App() {
       void openFile(entry);
       return;
     }
+    const isCurrentlyExpanded = projectExpanded[entry.path];
     setProjectExpanded((prev) => ({ ...prev, [entry.path]: !prev[entry.path] }));
-    if (!projectTree[entry.path]) {
+    // Only load if expanding and not already loaded
+    if (!isCurrentlyExpanded && !projectTree[entry.path]) {
       const subPath = relativeSubPath(activeProjectInfo.root_path, entry.path);
       const listing = await listProjectDirectory(activeProject, subPath);
       if (listing) {
@@ -225,8 +233,10 @@ function App() {
       void openFile(entry);
       return;
     }
+    const isCurrentlyExpanded = systemExpanded[entry.path];
     setSystemExpanded((prev) => ({ ...prev, [entry.path]: !prev[entry.path] }));
-    if (!systemTree[entry.path]) {
+    // Only load if expanding and not already loaded
+    if (!isCurrentlyExpanded && !systemTree[entry.path]) {
       const listing = await listDirectory(entry.path);
       if (listing) {
         // Use entry.path (the path we requested) not listing.path (canonicalized)
@@ -274,7 +284,7 @@ function App() {
       setProjectError(result.error ?? 'Failed to create project.');
       return;
     }
-    setActiveProject(result.project.id);
+    setActiveProjectState(result.project.id);
     closeProjectModal();
   };
 
@@ -394,7 +404,7 @@ function App() {
             <button
               key={project.id}
               className={`project-tab ${activeProject === project.id ? 'active' : ''}`}
-              onClick={() => setActiveProject(project.id)}
+              onClick={() => setActiveProjectState(project.id)}
             >
               {project.name}
             </button>
@@ -1035,9 +1045,18 @@ function FileTree({
         )}
       </div>
       
+      {/* Entry count */}
+      <div className="tree-entry-count">
+        {rootListing.entries.filter(e => showHidden || !e.name.startsWith('.')).length} items
+        {rootListing.entries.length > 0 && !showHidden && rootListing.entries.some(e => e.name.startsWith('.')) && (
+          <span> ({rootListing.entries.filter(e => e.name.startsWith('.')).length} hidden)</span>
+        )}
+      </div>
+      
       {/* Tree nodes */}
       <div className="tree-nodes-scrollable">
         <TreeNodes
+          key={rootPath}  // Force re-render when root changes
           path={rootPath}
           listings={listings}
           expanded={expanded}
