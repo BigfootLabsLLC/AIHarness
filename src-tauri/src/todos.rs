@@ -56,6 +56,7 @@ impl TodoStore {
     }
 
     pub async fn list(&self) -> Result<Vec<TodoItem>, ContextError> {
+        tracing::info!("TodoStore::list() db_path={}", self.db_path);
         let db = self.get_db()?;
         let mut stmt = db.prepare(
             "SELECT id, title, description, completed, position, created_at, updated_at
@@ -91,6 +92,7 @@ impl TodoStore {
         description: Option<String>,
         position: Option<i64>,
     ) -> Result<TodoItem, ContextError> {
+        tracing::info!("TodoStore::add() title={} db_path={}", title, self.db_path);
         let db = self.get_db()?;
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
@@ -347,5 +349,40 @@ mod tests {
         let (store, _temp) = create_store().await;
         let err = store.remove("missing").await.unwrap_err();
         assert!(matches!(err, ContextError::NotInContext(_)));
+    }
+
+    #[tokio::test]
+    async fn separate_databases_are_isolated() {
+        // Create two separate stores with different DB paths
+        let temp1 = TempDir::new().unwrap();
+        let temp2 = TempDir::new().unwrap();
+        let db_path1 = temp1.path().join("todo1.db");
+        let db_path2 = temp2.path().join("todo2.db");
+        
+        let store1 = TodoStore::new(db_path1.to_str().unwrap()).await.unwrap();
+        let store2 = TodoStore::new(db_path2.to_str().unwrap()).await.unwrap();
+        
+        // Add a todo to store1
+        store1.add("Store1 Task", None, None).await.unwrap();
+        
+        // Verify store1 has the task
+        let todos1 = store1.list().await.unwrap();
+        assert_eq!(todos1.len(), 1);
+        assert_eq!(todos1[0].title, "Store1 Task");
+        
+        // Verify store2 does NOT have the task
+        let todos2 = store2.list().await.unwrap();
+        assert_eq!(todos2.len(), 0, "Store2 should not see Store1's todos");
+        
+        // Add a different task to store2
+        store2.add("Store2 Task", None, None).await.unwrap();
+        
+        // Verify isolation is maintained
+        let todos1 = store1.list().await.unwrap();
+        let todos2 = store2.list().await.unwrap();
+        assert_eq!(todos1.len(), 1, "Store1 should still have only 1 task");
+        assert_eq!(todos2.len(), 1, "Store2 should have 1 task");
+        assert_eq!(todos1[0].title, "Store1 Task");
+        assert_eq!(todos2[0].title, "Store2 Task");
     }
 }
