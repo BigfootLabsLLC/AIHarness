@@ -9,7 +9,15 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 const DEFAULT_PORT: u16 = 8787;
 
 fn mcp_url(port: u16) -> String {
-    format!("http://127.0.0.1:{}/mcp", port)
+    // Check for project ID from Claude MCP environment variable
+    match resolve_project_id() {
+        Some(pid) => {
+            format!("http://127.0.0.1:{}/mcp/{}", port, pid)
+        }
+        _ => {
+            format!("http://127.0.0.1:{}/mcp", port)
+        }
+    }
 }
 
 fn health_url(port: u16) -> String {
@@ -66,6 +74,11 @@ fn resolve_port() -> u16 {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(DEFAULT_PORT)
+}
+
+/// Resolve the project ID from env or return None.
+fn resolve_project_id() -> Option<String> {
+    std::env::var("AIH_PROJECT_ID").ok().filter(|s| !s.is_empty())
 }
 
 /// Validate that the HTTP server is reachable before proxying.
@@ -164,6 +177,33 @@ mod tests {
         std::env::set_var("AIH_PORT", "9001");
         assert_eq!(resolve_port(), 9001);
         std::env::remove_var("AIH_PORT");
+    }
+
+    #[test]
+    fn mcp_url_without_project_id() {
+        std::env::remove_var("AIH_PROJECT_ID");
+        assert_eq!(mcp_url(8787), "http://127.0.0.1:8787/mcp");
+    }
+
+    #[test]
+    fn mcp_url_with_project_id() {
+        std::env::set_var("AIH_PROJECT_ID", "my-project-123");
+        assert_eq!(mcp_url(8787), "http://127.0.0.1:8787/mcp/my-project-123");
+        std::env::remove_var("AIH_PROJECT_ID");
+    }
+
+    #[test]
+    fn resolve_project_id_from_env() {
+        std::env::set_var("AIH_PROJECT_ID", "test-project");
+        assert_eq!(resolve_project_id(), Some("test-project".to_string()));
+        std::env::remove_var("AIH_PROJECT_ID");
+    }
+
+    #[test]
+    fn resolve_project_id_empty_string() {
+        std::env::set_var("AIH_PROJECT_ID", "");
+        assert_eq!(resolve_project_id(), None);
+        std::env::remove_var("AIH_PROJECT_ID");
     }
 
     #[test]

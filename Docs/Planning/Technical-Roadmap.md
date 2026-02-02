@@ -1210,6 +1210,797 @@ impl AgentManager {
 
 ---
 
+## Phase 19: Agent Conversation Control Design (v2.0) ⭐ TECHNICAL SPEC
+
+### 19.1 Design Considerations Todo List
+
+**Data Model:**
+- [ ] Define TypeScript interfaces for all message types
+- [ ] Design message metadata schema (cost, latency, model info)
+- [ ] Handle @mention resolution and caching
+- [ ] Design attachment system (files, folders, text snippets)
+- [ ] Design conversation branching/forking data model (future)
+- [ ] Message versioning for edits
+
+**Component Hierarchy:**
+- [ ] Define component tree structure
+- [ ] Design prop interfaces between components
+- [ ] Plan for component reusability (tool cards, etc.)
+- [ ] Lazy loading strategy for long conversations
+- [ ] Split pane layout for context panel
+
+**State Management:**
+- [ ] Zustand store design for conversation state
+- [ ] Separate UI state from message data
+- [ ] Optimistic updates vs server confirmation
+- [ ] State persistence strategy (localStorage, session storage)
+- [ ] Undo/redo considerations
+
+**Streaming Flow:**
+- [ ] Design streaming buffer strategy (chunk accumulation)
+- [ ] Flush timing (punctuation vs interval-based)
+- [ ] Handle reconnection during streaming
+- [ ] Cancel/pause streaming mid-response
+- [ ] Render partial markdown gracefully
+
+**Input System:**
+- [ ] @mention autocomplete (file path resolution)
+- [ ] /command autocomplete
+- [ ] Input history navigation (up/down arrows)
+- [ ] Multi-line input handling (Shift+Enter)
+- [ ] IME composition support (CJK input)
+- [ ] Drag-and-drop file attachment
+- [ ] Paste image handling
+- [ ] Input validation and sanitization
+
+**Tool Call Visualization:**
+- [ ] Design tool call card structure
+- [ ] Status indicators (pending/running/completed/error)
+- [ ] Expandable arguments/result sections
+- [ ] Special renderers for common tools (read_file, shell)
+- [ ] Terminal output styling for shell commands
+- [ ] Syntax highlighting for code results
+- [ ] Error state visualization
+
+**Thinking/Reasoning Display:**
+- [ ] Collapsible thinking block design
+- [ ] Real-time thinking updates
+- [ ] Tree structure for multi-step reasoning
+- [ ] Link thinking to final response
+- [ ] Persist user expand/collapse preference
+
+**Approval System:**
+- [ ] Approval request banner design
+- [ ] Risk level indicators (color coding)
+- [ ] Detail view for complex requests
+- [ ] "Always approve" options (per-tool, per-session)
+- [ ] Approval timeout handling
+- [ ] Batch approvals (multiple pending)
+
+**Scroll & Virtualization:**
+- [ ] Choose virtualization library (react-virtuoso)
+- [ ] Dynamic item height handling
+- [ ] Auto-scroll behavior (sticky bottom)
+- [ ] "New messages" indicator when scrolled up
+- [ ] Scroll to specific message
+- [ ] Handle streaming at bottom smoothly
+- [ ] Search result scroll-to behavior
+
+**Context/Attachments:**
+- [ ] Context panel design
+- [ ] File tree vs flat list
+- [ ] Drag-and-drop zones
+- [ ] Context size limits/warnings
+- [ ] Quick-add from recent files
+- [ ] Context persistence with conversation
+
+**Error & Recovery:**
+- [ ] Network error handling
+- [ ] Agent process crash recovery
+- [ ] Retry mechanisms for failed messages
+- [ ] Error message design
+- [ ] Partial state recovery
+
+**Performance:**
+- [ ] Message list virtualization
+- [ ] Image lazy loading
+- [ ] Large conversation handling (>1000 messages)
+- [ ] Memory management for long sessions
+- [ ] Debounced search/filtering
+
+**Accessibility:**
+- [ ] Keyboard navigation
+- [ ] ARIA labels for dynamic content
+- [ ] Screen reader announcements for streaming
+- [ ] Focus management
+- [ ] High contrast mode support
+
+**Theming:**
+- [ ] CSS variable integration
+- [ ] Dark/light mode support
+- [ ] Custom accent color handling
+- [ ] Code block theme consistency
+
+### 19.2 Data Model Specification
+
+```typescript
+// ==================== Core Types ====================
+
+type MessageId = string;
+type AgentId = string;
+type ToolCallId = string;
+
+interface Message {
+  id: MessageId;
+  type: MessageType;
+  timestamp: Date;
+  // Common metadata
+  metadata?: {
+    cost?: number;           // Token cost for this message
+    latencyMs?: number;      // Response time
+    model?: string;          // Which model generated this
+  };
+}
+
+type MessageType = 
+  | UserMessage 
+  | AssistantMessage 
+  | ToolCallMessage 
+  | ToolResultMessage 
+  | SystemMessage
+  | ThinkingMessage;
+
+// -------------------- User Input --------------------
+
+interface UserMessage extends Message {
+  type: 'user';
+  content: string;           // Raw input (may contain @mentions)
+  parsedContent?: ParsedContent;  // Processed mentions
+  attachments?: Attachment[];     // Files/context added
+}
+
+interface ParsedContent {
+  text: string;
+  mentions: Mention[];       // @file references
+  commands: Command[];       // /slash commands
+}
+
+interface Mention {
+  type: 'file' | 'folder' | 'symbol';
+  raw: string;               // "@src/main.ts"
+  resolvedPath?: string;     // Absolute path
+  content?: string;          // Fetched content at send time
+}
+
+interface Attachment {
+  id: string;
+  type: 'file' | 'folder' | 'text' | 'image';
+  name: string;
+  content: string;
+  size?: number;
+}
+
+// -------------------- AI Response --------------------
+
+interface AssistantMessage extends Message {
+  type: 'assistant';
+  content: string;           // Markdown content
+  contentParts: ContentPart[];  // Structured for streaming
+  thinkingBlockId?: string;  // Link to associated thinking
+  isStreaming: boolean;      // Currently receiving?
+  isComplete: boolean;       // Finished?
+}
+
+type ContentPart = 
+  | { type: 'text'; text: string }
+  | { type: 'code'; language: string; code: string }
+  | { type: 'tool_reference'; toolCallId: string };
+
+// -------------------- Thinking/Reasoning --------------------
+
+interface ThinkingMessage extends Message {
+  type: 'thinking';
+  content: string;           // Raw thinking text
+  isVisible: boolean;        // User expanded?
+  isComplete: boolean;       // Finished thinking?
+  parentMessageId: MessageId; // Links to assistant message
+}
+
+// -------------------- Tool Execution --------------------
+
+interface ToolCallMessage extends Message {
+  type: 'tool_call';
+  toolCallId: ToolCallId;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  status: 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
+  executionTimeMs?: number;
+}
+
+interface ToolResultMessage extends Message {
+  type: 'tool_result';
+  toolCallId: ToolCallId;    // Links to the call
+  result: unknown;           // Structured result
+  output: string;            // Human-readable output
+  isError: boolean;
+  exitCode?: number;         // For shell commands
+}
+
+// -------------------- System --------------------
+
+interface SystemMessage extends Message {
+  type: 'system';
+  content: string;
+  level: 'info' | 'warning' | 'error';
+  action?: SystemAction;     // Optional actionable
+}
+
+interface SystemAction {
+  label: string;
+  action: () => void;
+}
+
+// ==================== Conversation State ====================
+
+interface ConversationState {
+  messages: Message[];
+  sessionId: string;
+  agentId: AgentId;
+  
+  // Input state
+  inputValue: string;
+  inputHistory: string[];
+  historyIndex: number;
+  isComposing: boolean;      // IME composition
+  
+  // Streaming state
+  streamingMessageId?: MessageId;
+  streamingThinkingId?: MessageId;
+  
+  // UI state
+  scrollPosition: 'bottom' | 'sticky' | number;
+  selectedMessageId?: MessageId;
+  expandedToolCalls: Set<ToolCallId>;
+  expandedThinking: Set<MessageId>;
+  
+  // Pending interactions
+  pendingApproval?: ApprovalRequest;
+  isLoading: boolean;
+}
+
+interface ApprovalRequest {
+  id: string;
+  toolCallId: ToolCallId;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  description: string;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+```
+
+### 19.3 Component Hierarchy
+
+```
+AgentConversationView (container)
+├── AgentHeader
+│   ├── Breadcrumb (Project / Agent Name)
+│   ├── AgentStatus (idle/thinking/running/error)
+│   ├── CostIndicator (session cost)
+│   └── Actions (settings, pause, stop, close)
+├── ConversationPanel (main scrollable area)
+│   └── Virtuoso (virtualized list)
+│       └── MessageRenderer (switch on message.type)
+│           ├── UserMessageItem
+│           │   ├── MessageBubble
+│           │   ├── AttachmentList
+│           │   └── EditButton (if last message)
+│           ├── AssistantMessageItem
+│           │   ├── Avatar
+│           │   ├── MessageContent (markdown)
+│           │   ├── StreamingIndicator (if active)
+│           │   └── Actions (copy, regenerate)
+│           ├── ThinkingBlock
+│           │   ├── CollapsibleHeader
+│           │   └── ThinkingContent
+│           ├── ToolCallCard
+│           │   ├── ToolHeader (name + status icon)
+│           │   ├── Arguments (collapsible JSON)
+│           │   └── ResultPanel (when complete)
+│           └── SystemMessageBanner
+├── PendingApprovalBanner (sticky if present)
+│   ├── ApprovalDetails
+│   └── ActionButtons (approve/reject/always)
+├── ContextPanel (collapsible side drawer)
+│   ├── AttachedFilesList
+│   ├── AddContextButton
+│   └── SuggestedContext
+└── InputArea (fixed bottom)
+    ├── ContextPreview (mini attachments)
+    ├── InputToolbar
+    │   ├── AttachButton
+    │   ├── ClearButton
+    │   └── ModelSelector (if applicable)
+    ├── AgentInput (main textarea)
+    │   ├── MentionAutocomplete (popup)
+    │   └── CommandAutocomplete (popup)
+    └── SendButton
+```
+
+### 19.4 State Management & Data Flow
+
+```typescript
+// ==================== Store Design (Zustand) ====================
+
+interface AgentConversationStore {
+  // State
+  conversation: ConversationState;
+  
+  // Actions
+  // --- Input ---
+  setInput: (value: string) => void;
+  sendMessage: () => Promise<void>;
+  navigateHistory: (direction: 'up' | 'down') => void;
+  addAttachment: (file: File) => void;
+  removeAttachment: (id: string) => void;
+  
+  // --- Streaming ---
+  startStreaming: () => MessageId;
+  appendStreamingContent: (messageId: MessageId, chunk: string) => void;
+  appendThinkingContent: (thinkingId: MessageId, chunk: string) => void;
+  completeStreaming: (messageId: MessageId) => void;
+  
+  // --- Tool Calls ---
+  addToolCall: (toolCall: ToolCallMessage) => void;
+  updateToolStatus: (toolCallId: ToolCallId, status: ToolStatus) => void;
+  setToolResult: (toolCallId: ToolCallId, result: ToolResultMessage) => void;
+  toggleToolExpanded: (toolCallId: ToolCallId) => void;
+  
+  // --- Approvals ---
+  requestApproval: (request: ApprovalRequest) => void;
+  approve: (requestId: string, rememberChoice?: boolean) => void;
+  reject: (requestId: string) => void;
+  
+  // --- UI ---
+  scrollToBottom: () => void;
+  toggleThinking: (messageId: MessageId) => void;
+  selectMessage: (messageId: MessageId | undefined) => void;
+}
+
+// ==================== Event Flow ====================
+
+/*
+┌─────────────────────────────────────────────────────────────┐
+│  USER ACTION: Type message and press Enter                  │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  INPUT PROCESSING                                           │
+│  • Parse @mentions → resolve file paths                     │
+│  • Parse /commands → extract instructions                   │
+│  • Create UserMessage with attachments                      │
+│  • Add to message list                                      │
+│  • Clear input, save to history                             │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  SEND TO BACKEND (Rust via Tauri)                           │
+│  invoke('send_to_agent', {                                  │
+│    agentId,                                                 │
+│    message: parsedContent,                                  │
+│    context: attachments                                     │
+│  })                                                         │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  RUST: AgentManager sends to child process (kimi --wire)    │
+│  • Send JSON-RPC prompt request                             │
+│  • Subscribe to stdout events                               │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+            ┌───────────┴───────────┐
+            │                       │
+            ▼                       ▼
+┌───────────────────┐   ┌─────────────────────────────────────┐
+│  EVENT: content   │   │  EVENT: thinking                    │
+│  • Append to      │   │  • Create/update ThinkingMessage    │
+│    streaming msg  │   │  • Emit to frontend                 │
+│  • Emit delta     │   └─────────────────────────────────────┘
+└───────────────────┘
+            │
+            ▼
+┌───────────────────┐   ┌─────────────────────────────────────┐
+│  EVENT: tool_call │   │  EVENT: approval_request            │
+│  • Add ToolCall   │   │  • Set pendingApproval              │
+│    message        │   │  • Show banner                      │
+└───────────────────┘   └─────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  EVENT: tool_result                                         │
+│  • Update ToolCall status                                   │
+│  • Add ToolResult message                                   │
+│  • Agent continues processing                               │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  EVENT: turn_complete                                       │
+│  • Mark streaming complete                                  │
+│  • Update final metadata (cost, tokens)                     │
+│  • Enable input                                             │
+└─────────────────────────────────────────────────────────────┘
+*/
+```
+
+### 19.5 Streaming Behavior Specification
+
+```typescript
+// ==================== Streaming Implementation ====================
+
+interface StreamingState {
+  messageId: MessageId;
+  buffer: string;
+  lastFlushTime: number;
+  flushInterval: number;  // ms
+}
+
+// Buffering strategy for smooth UI
+class StreamingBuffer {
+  private buffer = '';
+  private flushTimer?: number;
+  private readonly FLUSH_INTERVAL = 50; // ms
+  
+  append(chunk: string, onFlush: (text: string) => void): void {
+    this.buffer += chunk;
+    
+    // Clear existing timer
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+    }
+    
+    // Flush immediately on punctuation or newlines
+    if (/[.!?\n]$/.test(chunk)) {
+      onFlush(this.buffer);
+      this.buffer = '';
+      return;
+    }
+    
+    // Otherwise flush on interval
+    this.flushTimer = window.setTimeout(() => {
+      onFlush(this.buffer);
+      this.buffer = '';
+    }, this.FLUSH_INTERVAL);
+  }
+  
+  flush(onFlush: (text: string) => void): void {
+    if (this.buffer) {
+      onFlush(this.buffer);
+      this.buffer = '';
+    }
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+    }
+  }
+}
+
+// React component with streaming
+function StreamingMessage({ messageId }: { messageId: MessageId }) {
+  const [displayContent, setDisplayContent] = useState('');
+  const streamingBuffer = useRef(new StreamingBuffer());
+  
+  useEffect(() => {
+    // Subscribe to backend events via Tauri
+    const unlisten = listen('agent:content_chunk', (event) => {
+      if (event.payload.messageId === messageId) {
+        streamingBuffer.current.append(
+          event.payload.chunk,
+          (text) => setDisplayContent(prev => prev + text)
+        );
+      }
+    });
+    
+    return () => {
+      streamingBuffer.current.flush((text) => {
+        setDisplayContent(prev => prev + text);
+      });
+      unlisten.then(f => f());
+    };
+  }, [messageId]);
+  
+  return (
+    <MarkdownContent content={displayContent} />
+  );
+}
+```
+
+### 19.6 Input System Deep Dive
+
+```typescript
+// ==================== Smart Input Component ====================
+
+interface AgentInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  history: string[];
+  onAttachFile: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+// Features:
+// 1. @mention autocomplete for files
+// 2. /command autocomplete
+// 3. History navigation (up/down)
+// 4. Multi-line (Shift+Enter)
+// 5. Auto-resize height
+
+function AgentInput(props: AgentInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  
+  // Auto-resize
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    }
+  }, [props.value]);
+  
+  // Handle input changes for autocomplete
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const pos = e.target.selectionStart;
+    props.onChange(value);
+    setCursorPosition(pos);
+    
+    // Check for @mention trigger
+    const beforeCursor = value.slice(0, pos);
+    const mentionMatch = beforeCursor.match(/@([^\s]*)$/);
+    if (mentionMatch) {
+      fetchFileSuggestions(mentionMatch[1]).then(setSuggestions);
+    }
+    // Check for /command trigger
+    else if (beforeCursor.match(/^\/)) {
+      setSuggestions(getCommandSuggestions(beforeCursor));
+    }
+    else {
+      setSuggestions([]);
+    }
+  };
+  
+  // Handle special keys
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Submit on Enter (not Shift+Enter)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (suggestions.length > 0) {
+        acceptSuggestion(suggestions[suggestionIndex]);
+      } else {
+        props.onSubmit();
+      }
+      return;
+    }
+    
+    // History navigation
+    if (e.key === 'ArrowUp' && cursorPosition === 0) {
+      e.preventDefault();
+      navigateHistory('up');
+    }
+    if (e.key === 'ArrowDown' && isAtEnd()) {
+      e.preventDefault();
+      navigateHistory('down');
+    }
+    
+    // Suggestion navigation
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSuggestionIndex(i => (i + 1) % suggestions.length);
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSuggestionIndex(i => (i - 1 + suggestions.length) % suggestions.length);
+      }
+      if (e.key === 'Escape') {
+        setSuggestions([]);
+      }
+    }
+  };
+  
+  return (
+    <div className="relative">
+      <textarea
+        ref={textareaRef}
+        value={props.value}
+        onChange={handleInput}
+        onKeyDown={handleKeyDown}
+        disabled={props.disabled}
+        placeholder={props.placeholder}
+        className="w-full resize-none bg-transparent border-0 focus:ring-0"
+        rows={1}
+      />
+      
+      {/* Autocomplete popup */}
+      {suggestions.length > 0 && (
+        <AutocompletePopup
+          suggestions={suggestions}
+          selectedIndex={suggestionIndex}
+          onSelect={acceptSuggestion}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### 19.7 Tool Call Visualization
+
+```typescript
+// ==================== Tool Call Card ====================
+
+interface ToolCallCardProps {
+  toolCall: ToolCallMessage;
+  result?: ToolResultMessage;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}
+
+function ToolCallCard(props: ToolCallCardProps) {
+  const { toolCall, result } = props;
+  const isRunning = toolCall.status === 'running';
+  const isError = result?.isError ?? false;
+  
+  return (
+    <div className={cn(
+      "rounded-lg border my-2 overflow-hidden",
+      isError ? "border-red-300 bg-red-50" : "border-[var(--border-soft)]"
+    )}>
+      {/* Header - Always visible */}
+      <button 
+        onClick={props.onToggleExpand}
+        className="w-full flex items-center justify-between p-3 hover:bg-[var(--bone-100)]"
+      >
+        <div className="flex items-center gap-2">
+          <ToolStatusIcon status={toolCall.status} />
+          <span className="font-medium">{toolCall.toolName}</span>
+          {isRunning && <Spinner size="sm" />}
+        </div>
+        <ChevronIcon expanded={props.isExpanded} />
+      </button>
+      
+      {/* Expanded content */}
+      {props.isExpanded && (
+        <div className="border-t border-[var(--border-soft)] p-3 space-y-3">
+          {/* Arguments */}
+          <div>
+            <h4 className="text-xs uppercase text-[var(--ink-500)] mb-1">Arguments</h4>
+            <pre className="bg-[var(--bone-50)] p-2 rounded text-sm overflow-x-auto">
+              <code>{JSON.stringify(toolCall.arguments, null, 2)}</code>
+            </pre>
+          </div>
+          
+          {/* Result (when complete) */}
+          {result && (
+            <div>
+              <h4 className="text-xs uppercase text-[var(--ink-500)] mb-1">Result</h4>
+              <ToolResultDisplay result={result} />
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Compact preview (when collapsed and complete) */}
+      {!props.isExpanded && result && !isError && (
+        <div className="px-3 pb-2 text-sm text-[var(--ink-500)] truncate">
+          {truncateResult(result.output, 60)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Special renderers for common tools
+function ToolResultDisplay({ result }: { result: ToolResultMessage }) {
+  // File content - show with syntax highlighting
+  if (isFileContent(result)) {
+    return <CodeBlock code={result.output} language={detectLanguage(result)} />;
+  }
+  
+  // Shell output - terminal style
+  if (isShellOutput(result)) {
+    return <TerminalOutput output={result.output} exitCode={result.exitCode} />;
+  }
+  
+  // Error - styled error message
+  if (result.isError) {
+    return <ErrorDisplay message={result.output} />;
+  }
+  
+  // Default - plain text
+  return <pre className="text-sm whitespace-pre-wrap">{result.output}</pre>;
+}
+```
+
+### 19.8 Scroll & Virtualization Behavior
+
+```typescript
+// ==================== Smart Scrolling ====================
+
+interface ScrollBehavior {
+  // "bottom" = auto-scroll to bottom on new content
+  // "sticky" = stay at bottom if already near bottom, else free scroll
+  // number = specific scroll position
+  mode: 'bottom' | 'sticky' | number;
+  threshold: number;  // pixels from bottom to consider "at bottom"
+}
+
+function ConversationPanel() {
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+  
+  // Handle new messages
+  useEffect(() => {
+    if (atBottom) {
+      // Auto-scroll if user is at bottom
+      virtuosoRef.current?.scrollToIndex({ index: 'LAST' });
+    } else {
+      // Show "new messages" indicator
+      setNewMessagesCount(c => c + 1);
+    }
+  }, [messages.length]);
+  
+  return (
+    <div className="relative h-full">
+      <Virtuoso
+        ref={virtuosoRef}
+        data={messages}
+        followOutput={atBottom ? 'auto' : false}
+        atBottomStateChange={setAtBottom}
+        itemContent={(index, message) => (
+          <MessageRenderer message={message} />
+        )}
+      />
+      
+      {/* New messages indicator */}
+      {!atBottom && newMessagesCount > 0 && (
+        <button
+          onClick={() => {
+            virtuosoRef.current?.scrollToIndex({ index: 'LAST' });
+            setNewMessagesCount(0);
+          }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 
+                     bg-[var(--accent-500)] text-white px-4 py-2 rounded-full
+                     shadow-lg hover:bg-[var(--accent-600)]"
+        >
+          {newMessagesCount} new message{newMessagesCount !== 1 ? 's' : ''}
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+### 19.9 Library Recommendations
+
+| Purpose | Library | Reason |
+|---------|---------|--------|
+| **Virtualization** | `react-virtuoso` | Dynamic heights, smooth scroll, follow output |
+| **Markdown** | `react-markdown` + `remark-gfm` | Extensible, tree-sitter support |
+| **Syntax Highlight** | `shiki` | VS Code themes, accurate, lightweight |
+| **Styling** | Tailwind + CSS Variables | Matches existing design system |
+| **Collapsible** | `@radix-ui/react-collapsible` | Accessible, unstyled |
+| **Auto-resize** | Custom hook | Simple textarea measurement |
+
+---
+
 ## Technical Stack Recommendations
 
 ### Frontend

@@ -75,7 +75,10 @@ npm run tauri build
 # Build and collect app in build/
 npm run build:app
 
-# Output: build/AIHarness.app
+# Install to /Applications (Local)
+./scripts/install-local.sh
+
+# Output: /Applications/AIHarness.app
 ```
 
 `npm run build:app` runs the Rust test suite before building the app.
