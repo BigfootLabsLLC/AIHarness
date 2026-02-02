@@ -626,6 +626,26 @@ function App() {
                 <div className="empty-state">No agents active.</div>
               </div>
             </PanelShell>
+
+            {/* Debug Panel */}
+            <PanelShell title="Debug Info" tabs={['Project']}>
+              <div className="stack" style={{ fontSize: '10px', fontFamily: 'monospace' }}>
+                {activeProjectInfo ? (
+                  <>
+                    <div><strong>Project ID:</strong></div>
+                    <div style={{ wordBreak: 'break-all' }}>{activeProjectInfo.id}</div>
+                    <div style={{ marginTop: '8px' }}><strong>Name:</strong></div>
+                    <div>{activeProjectInfo.name}</div>
+                    <div style={{ marginTop: '8px' }}><strong>Root Path:</strong></div>
+                    <div style={{ wordBreak: 'break-all' }}>{activeProjectInfo.root_path}</div>
+                    <div style={{ marginTop: '8px' }}><strong>DB Path:</strong></div>
+                    <div style={{ wordBreak: 'break-all', color: '#0b8d80' }}>{activeProjectInfo.db_path}</div>
+                  </>
+                ) : (
+                  <div className="empty-state">No project selected</div>
+                )}
+              </div>
+            </PanelShell>
           </section>
         </div>
       </div>
