@@ -186,6 +186,9 @@
     border: 1px solid var(--border-soft);
     border-radius: 0 4px 4px 0;
     padding: 6px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .project-tab.active {
