@@ -83,6 +83,10 @@ impl AppState {
 
     pub async fn get_project_store(&self, project_id: &str) -> Result<Arc<ProjectStore>, ContextError> {
         if let Some(store) = self.project_stores.get(project_id).await {
+            tracing::info!(
+                "get_project_store: cache hit for project_id={}, db_path={}",
+                project_id, store.info.db_path
+            );
             return Ok(store);
         }
 
@@ -91,6 +95,11 @@ impl AppState {
             .get_project(project_id)
             .await?
             .ok_or_else(|| ContextError::NotInContext(project_id.to_string()))?;
+
+        tracing::info!(
+            "get_project_store: creating new store for project_id={}, db_path={}",
+            project_id, project.db_path
+        );
 
         let store = Arc::new(ProjectStore::new(project).await?);
         self.project_stores.insert(store.clone()).await;

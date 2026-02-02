@@ -293,6 +293,15 @@ async fn list_projects(
         .list_projects()
         .await
         .map_err(|e| e.to_string())?;
+    
+    // Debug: Log all projects and their db_paths
+    for p in &projects {
+        tracing::info!(
+            "Project: id={}, name={}, root_path={}, db_path={}",
+            p.id, p.name, p.root_path, p.db_path
+        );
+    }
+    
     Ok(projects
         .into_iter()
         .map(|p| ProjectInfo {
@@ -341,6 +350,13 @@ async fn list_todos(
             .await
             .map_err(|e| e.to_string())?
     };
+    
+    // Debug logging
+    tracing::info!(
+        "list_todos: project_id={}, db_path={}",
+        project_id, store.info.db_path
+    );
+    
     let todos = store
         .todo_store
         .read()
@@ -348,6 +364,9 @@ async fn list_todos(
         .list()
         .await
         .map_err(|e| e.to_string())?;
+    
+    tracing::info!("list_todos: found {} todos for project {}", todos.len(), project_id);
+    
     let items = todos.into_iter().map(todo_info_from).collect();
     Ok(items)
 }
@@ -368,6 +387,13 @@ async fn add_todo(
             .await
             .map_err(|e| e.to_string())?
     };
+    
+    // Debug logging
+    tracing::info!(
+        "add_todo: project_id={}, db_path={}, title={}",
+        project_id, store.info.db_path, title
+    );
+    
     let todo = store
         .todo_store
         .read()
